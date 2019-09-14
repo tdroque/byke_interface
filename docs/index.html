@@ -22,14 +22,14 @@
 	<link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
 	<link rel="icon" href="favicon.ico" type="image/x-icon">
 	
-        <title>byke</title>
+        <title>byke Code Repositories</title>
 </head>
 <body>
     <header class="site-header">
       <nav class="navbar navbar-expand-md navbar-dark bg-primary fixed-top">
         <div class="container">
 		  
-		  <a class="navbar-brand mr-4" href="https://tdroque.github.io/byke_interface/">byke</a>
+		  <a class="navbar-brand mr-4" href="https://tdroque.github.io/byke_interface/">byke Code Repositories</a>
 		  
           <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarToggle" aria-controls="navbarToggle" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
@@ -41,6 +41,7 @@
             <!-- Navbar Right Side -->
             <div class="navbar-nav">
 				<a class="nav-item nav-link" href="https://sites.google.com/view/smortbyk/">Capstone Site</a>
+				<a class="nav-item nav-link" href="https://www.pivotaltracker.com/projects/2325550">Coding Tasks</a>
             </div>
           </div>
         </div>
@@ -53,24 +54,88 @@
 	      <article class="media content-section">
           <div class="media-body">
             <div class="article-metadata">
-              <h1>PROJECT CODE</h1>
-			  <p>All Code for byke capstone project</p>
-			
+              <h1><u>BYKE PROJECT CODE</u></h1>
+			  <p>All Code for byke capstone project 
+			  <br>Each microcontroller and interface app has its own repository.</p>
+			  
             </div> 
           </div>
         </article>
+		
+		<article class="media content-section">
+          <div class="media-body">
+            <div class="article-metadata">
+              <h2><a href="https://github.com/tdroque/byke_interface"><u>byke interface</u></a></h2>
+			  <p><div>Raspberry Pi python app code is in byke interface repo. 
+			  <br>byke interface app runs on a raspberry pi zero w and is the main user interface. It controls communication between handle bar mounted buttons and other controllers.
+			  It displays bike information on touchscreen and saves data for later viewing.</div>
+			     </p>
+			  
+            </div> 
+          </div>
+        </article>
+		
+		<article class="media content-section">
+          <div class="media-body">
+            <div class="article-metadata">
+              <h2><a href="https://github.com/tdroque/byke_taillight"><u>byke tail light</u></a></h2>
+			  <p><div>Taillight pic microcontroller C code is in byke taillight repo
+			  <br>byke tail light controls, brake light, tail light, laser bike lane, and turn signals. Turn signals are three arrows flashing in sequence.
+			  Code is written with MPLAB X and MCC. Written for a PIC16F15324</div>
+			     </p>  
+            </div> 
+          </div>
+        </article>
+		
+		<article class="media content-section">
+          <div class="media-body">
+            <div class="article-metadata">
+              <h2><a href="https://github.com/tdroque/byke_motorcontroller"><u>byke motor controller</u></a></h2>
+			  <p><div>Motor controller pic microcontroller C code is in byke motor controller repo
+			  <br>byke motor controller controls, motor pwm, connects to current sensor and battery voltage for battery life calculation.
+			  Code is written with MPLAB X and MCC. Written for a PIC16F15324</div>
+			     </p>  
+            </div> 
+          </div>
+        </article>
+		
+		<article class="media content-section">
+          <div class="media-body">
+            <div class="article-metadata">
+              <h2><a href="https://github.com/tdroque/byke_batterydisplay"><u>byke battery display</u></a></h2>
+			  <p><div>Battery display code is for running a small display which shows battery percentage without starting entire system.
+			  <br>byke battery display is code for an Arduino Pro Mini, with a 1.0" oled display.</div>
+			     </p>  
+            </div> 
+          </div>
+        </article>
+		
+		<article class="media content-section">
+          <div class="media-body">
+            <div class="article-metadata">
+              <h2><a href="https://github.com/tdroque/byke_testapp"><u>byke test app</u></a></h2>
+			  <p><div>Test app, is a little weight python app for the raspberry pi.
+			  <br>byke test app is used to test small parts of the final byke interface app. It is also used as a dedugging app. 
+				It can read and write all registers on the motor controller and tail light microcontrollers.</div>
+			     </p>  
+            </div> 
+          </div>
+        </article>
+		
 	
         <p><br><br><br></p>
 		</div>
         <div class="col-md-4">
           <div class="content-section">
             <h3>Code</h3>
-            <p class='text-muted'>Code Repositories
+            <p class='text-muted'>Code Repositories on GitHub
 			  <ul class="list-group">
 				
 				<a class="list-group-item list-group-item-light" href="https://github.com/tdroque/byke_interface">byke interface</a>
 				<a class="list-group-item list-group-item-light" href="https://github.com/tdroque/byke_taillight">byke taillight</a>
 				<a class="list-group-item list-group-item-light" href="https://github.com/tdroque/byke_motorcontroller">byke motor controller</a>
+				<a class="list-group-item list-group-item-light" href="https://github.com/tdroque/byke_batterydisplay">byke battery display</a>
+				<a class="list-group-item list-group-item-light" href="https://github.com/tdroque/byke_testapp">byke test app</a>
 				
               </ul>
 			</p>
