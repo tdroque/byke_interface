@@ -4,7 +4,7 @@
 # author: Tanner L
 # Decs: Raspberry Pi Interface App for byke capstone project
 # ----------------------------------
-import tkinter as tk
+import tkinter as tk               #standard GUI package 
 from tkinter import ttk
 from tkinter import *
 from PIL import ImageTk, Image
@@ -19,18 +19,18 @@ unitSelect = 0
 recordRunning = 0
 
 previousTrips = []
-for i in range(10):
+for i in range(10): #loop to store trip information in a list, add previous trip data to list??
     tripData = []
     for j in range(5):
         tripData.append(0)
     previousTrips.append(tripData)
 
 
-def metricSet(event=None):
+def metricSet(event=None):          #function to define metric as Km/H??
     unitS.config(text='Km/H')
 
 
-def imperialSet(event=None):
+def imperialSet(event=None):        #.config what does it do??
     unitS.config(text='MPH')
 
 
@@ -51,7 +51,7 @@ def rightFlashW():
 
 
 
-def record(event):
+def record(event):              #screen initialization?? 
     global recordRunning
     print(recordRunning)
     print(powerSpinner.get())
@@ -70,7 +70,7 @@ def record(event):
 
         for i in range(10):
             for j in range(5):
-                previousTrips[i][j] = float(data[i*5+j])
+                previousTrips[i][j] = float(data[i*5+j]) 
 
     elif recordRunning == 1:
         recordRunning=0
@@ -102,7 +102,7 @@ def record(event):
 
 
 # mainwindow--------------------------------------------
-mainWindow = tk.Tk()
+mainWindow = tk.Tk()                    #screen parameters 
 mainWindow.title('Byke')
 mainWindow.geometry('480x300+0+0')
 mainWindow.columnconfigure(0, weight=1)
