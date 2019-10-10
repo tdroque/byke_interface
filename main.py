@@ -1,9 +1,3 @@
-# ----------------------------------
-# file: main.py byke capstone - raspi interface
-# date: 12/09/2019
-# author: Tanner L
-# Decs: Raspberry Pi Interface App for byke capstone project
-# ----------------------------------
 import tkinter as tk
 from tkinter import ttk
 from tkinter import *
@@ -99,6 +93,17 @@ def record(event):
 
 #    except:
     #print('Start error')
+
+
+def previousTripDisplay():
+
+    tripnum = int(ptripselect.get())
+
+    pvtTime.config(text='Time: ' + str(previousTrips[tripnum][0]))
+    pvtMaxSpeed.config(text='Max Speed: ' + str(previousTrips[tripnum][1]))
+    pvtDistance.config(text='Distance: ' + str(previousTrips[tripnum][2]))
+    pvtDUp.config(text='Uphill Distance: ' + str(previousTrips[tripnum][3]))
+    pvtDDown.config(text='Downhill Distance: ' + str(previousTrips[tripnum][4]))
 
 
 # mainwindow--------------------------------------------
@@ -240,4 +245,3 @@ pvtDDown = tk.Label(previousTrip, text='Downhill Distance: ', bg='white')
 pvtDDown.grid(row=5, column=0, sticky='w')
 
 mainWindow.mainloop()
-
