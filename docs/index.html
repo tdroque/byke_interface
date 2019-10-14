@@ -1,179 +1,102 @@
-<!-- 
-# Program: Capstone - byke - github
-# File: index.html
-# Author:
-# Modified: Tanner L
-# Date: 12/09/19
-# Desc: index html
- -->
- 
 <!DOCTYPE html>
 <html>
+
 <head>
-    <!-- Required meta tags -->
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-
-    <!-- Bootstrap CSS -->
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
-
-    <link rel="stylesheet" type="text/css" href="main.css">
-
-	<link rel="shortcut icon" href="favicon.ico" type="image/x-icon">
-	<link rel="icon" href="favicon.ico" type="image/x-icon">
-	
-        <title>byke Code Repositories</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, shrink-to-fit=no">
+    <title>byke Code</title>
+    <link rel="stylesheet" href="bootstrap.min.css">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lato:300,400,700">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/ionicons/2.0.1/css/ionicons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pikaday/1.6.1/css/pikaday.min.css">
 </head>
+
 <body>
-    <header class="site-header">
-      <nav class="navbar navbar-expand-md navbar-dark bg-primary fixed-top">
-        <div class="container">
-		  
-		  <a class="navbar-brand mr-4" href="https://tdroque.github.io/byke_interface/">byke Code Repositories</a>
-		  
-          <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarToggle" aria-controls="navbarToggle" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-          </button>
-          <div class="collapse navbar-collapse" id="navbarToggle">
-            <div class="navbar-nav mr-auto">
-              <a class="nav-item nav-link" href="https://tdroque.github.io/byke_interface/"</a>
+    <nav class="navbar navbar-dark navbar-expand-lg fixed-top bg-white portfolio-navbar gradient">
+        <div class="container"><a class="navbar-brand logo" href="index.html">byke</a><button data-toggle="collapse" class="navbar-toggler" data-target="#navbarNav"><span class="sr-only">Toggle navigation</span><span class="navbar-toggler-icon"></span></button>
+            <div class="collapse navbar-collapse"
+                id="navbarNav">
+                <ul class="nav navbar-nav ml-auto">
+                    <li class="nav-item" role="presentation"><a class="nav-link" href="https://sites.google.com/view/smortbyk/">Project Site</a></li>
+                </ul>
+                <ul class="nav navbar-nav"></ul>
+                <ul class="nav navbar-nav"></ul>
             </div>
-            <!-- Navbar Right Side -->
-            <div class="navbar-nav">
-				<a class="nav-item nav-link" href="https://sites.google.com/view/smortbyk/">Capstone Site</a>
-				<a class="nav-item nav-link" href="https://www.pivotaltracker.com/projects/2325550">Coding Tasks</a>
+        </div>
+    </nav>
+    <main class="page projets-page">
+        <section class="portfolio-block project-no-images" style="padding-top: 50px;">
+            <div class="container">
+                <div class="heading">
+                    <h2>code repositories</h2>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 col-lg-4">
+                        <div class="project-card-no-image">
+                            <h3>interface</h3>
+                            <h4>byke interface app is the main user interface. It controls communication between handle bar mounted buttons and other controllers. It displays bike information on touchscreen and saves data for later viewing.<br></h4><a class="btn btn-outline-primary btn-sm"
+                                role="button" href="https://github.com/tdroque/byke_interface">View</a>
+                            <div class="tags">Python</div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4">
+                        <div class="project-card-no-image">
+                            <h3>taillight</h3>
+                            <h4>byke taillight controls, brake light, taillight, laser bike lane, and turn signals. Turn signals are three arrows flashing in sequence.&nbsp;<br></h4><a class="btn btn-outline-primary btn-sm" role="button" href="https://github.com/tdroque/byke_taillight">View<br></a>
+                            <div
+                                class="tags">C</div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-4">
+                    <div class="project-card-no-image">
+                        <h3>motor controller</h3>
+                        <h4>byke motor controller controls, motor pwm, connects to current sensor and battery voltage for battery life calculation.<br></h4><a class="btn btn-outline-primary btn-sm" role="button" href="https://github.com/tdroque/byke_motorcontroller">View</a>
+                        <div class="tags">C</div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-4">
+                    <div class="project-card-no-image">
+                        <h3>battery display</h3>
+                        <h4>Battery display code is for running a small display which shows battery percentage without starting entire system.<br></h4><a class="btn btn-outline-primary btn-sm" role="button" href="https://github.com/tdroque/byke_batterydisplay">View</a>
+                        <div class="tags">C</div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-4">
+                    <div class="project-card-no-image">
+                        <h3>test/debug app</h3>
+                        <h4>byke test app is used to test small parts of the final byke interface app. It is also used as a dedugging app. It can read and write all registers on the motor controller and taillight microcontrollers.<br></h4><a class="btn btn-outline-primary btn-sm"
+                            role="button" href="https://github.com/tdroque/byke_testapp">View</a>
+                        <div class="tags">python</div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-lg-4">
+                    <div class="project-card-no-image">
+                        <h3>api test client</h3>
+                        <h4>byke api client, is an app to test the api of the byke webapp. Code from the api test client will be incorperated into the final byke interface app.<br></h4><a class="btn btn-outline-primary btn-sm" role="button" href="https://github.com/tdroque/byke_api_client">View</a>
+                        <div
+                            class="tags">python</div>
+                </div>
             </div>
-          </div>
-        </div>
-      </nav>
-    </header>
-    <main role="main" class="container">
-      <div class="row">
-        <div class="col-md-8">
-		
-	      <article class="media content-section">
-          <div class="media-body">
-            <div class="article-metadata">
-              <h1><u>BYKE PROJECT CODE</u></h1>
-			  <p>All Code for byke capstone project 
-			  <br>Each microcontroller and interface app has its own repository.</p>
-			  
-            </div> 
-          </div>
-        </article>
-		
-		<article class="media content-section">
-          <div class="media-body">
-            <div class="article-metadata">
-              <h2><a href="https://github.com/tdroque/byke_interface"><u>byke interface</u></a></h2>
-			  <p><div>Raspberry Pi python app code is in byke interface repo. 
-			  <br>byke interface app runs on a raspberry pi zero w and is the main user interface. It controls communication between handle bar mounted buttons and other controllers.
-			  It displays bike information on touchscreen and saves data for later viewing.</div>
-			     </p>
-			  
-            </div> 
-          </div>
-        </article>
-		
-		<article class="media content-section">
-          <div class="media-body">
-            <div class="article-metadata">
-              <h2><a href="https://github.com/tdroque/byke_taillight"><u>byke tail light</u></a></h2>
-			  <p><div>Taillight pic microcontroller C code is in byke taillight repo
-			  <br>byke tail light controls, brake light, tail light, laser bike lane, and turn signals. Turn signals are three arrows flashing in sequence.
-			  Code is written with MPLAB X and MCC. Written for a PIC16F15324</div>
-			     </p>  
-            </div> 
-          </div>
-        </article>
-		
-		<article class="media content-section">
-          <div class="media-body">
-            <div class="article-metadata">
-              <h2><a href="https://github.com/tdroque/byke_motorcontroller"><u>byke motor controller</u></a></h2>
-			  <p><div>Motor controller pic microcontroller C code is in byke motor controller repo
-			  <br>byke motor controller controls, motor pwm, connects to current sensor and battery voltage for battery life calculation.
-			  Code is written with MPLAB X and MCC. Written for a PIC16F15324</div>
-			     </p>  
-            </div> 
-          </div>
-        </article>
-		
-		<article class="media content-section">
-          <div class="media-body">
-            <div class="article-metadata">
-              <h2><a href="https://github.com/tdroque/byke_batterydisplay"><u>byke battery display</u></a></h2>
-			  <p><div>Battery display code is for running a small display which shows battery percentage without starting entire system.
-			  <br>byke battery display is code for an Arduino Pro Mini, with a 1.0" oled display.</div>
-			     </p>  
-            </div> 
-          </div>
-        </article>
-		
-		<article class="media content-section">
-          <div class="media-body">
-            <div class="article-metadata">
-              <h2><a href="https://github.com/tdroque/byke_testapp"><u>byke test app</u></a></h2>
-			  <p><div>Test app, is a python app for the raspberry pi.
-			  <br>byke test app is used to test small parts of the final byke interface app. It is also used as a dedugging app. 
-				It can read and write all registers on the motor controller and tail light microcontrollers.</div>
-			     </p>  
-            </div> 
-          </div>
-        </article>
-		
-		<article class="media content-section">
-          <div class="media-body">
-            <div class="article-metadata">
-              <h2><a href="https://github.com/tdroque/byke_api_client"><u>byke api test client</u></a></h2>
-			  <p><div>API test client, is a python app to test the byke website api.
-			  <br>byke api client, is an app to test the api of the byke webapp. Code from the api test client will be 
-			  <br>incorperated into the final byke interface app.</div>
-			     </p>  
-            </div> 
-          </div>
-        </article>
-		
-	
-        <p><br><br><br></p>
-		</div>
-        <div class="col-md-4">
-          <div class="content-section">
-            <h3>Code</h3>
-            <p class='text-muted'>Code Repositories on GitHub
-			  <ul class="list-group">
-				
-				<a class="list-group-item list-group-item-light" href="https://github.com/tdroque/byke_interface">byke interface</a>
-				<a class="list-group-item list-group-item-light" href="https://github.com/tdroque/byke_taillight">byke taillight</a>
-				<a class="list-group-item list-group-item-light" href="https://github.com/tdroque/byke_motorcontroller">byke motor controller</a>
-				<a class="list-group-item list-group-item-light" href="https://github.com/tdroque/byke_batterydisplay">byke battery display</a>
-				<a class="list-group-item list-group-item-light" href="https://github.com/tdroque/byke_testapp">byke test app</a>
-				<a class="list-group-item list-group-item-light" href="https://github.com/tdroque/byke_api_client">byke api client</a>
-				
-              </ul>
-			</p>
-          </div>
-        </div>
-      </div>
+            <div class="col-md-6 col-lg-4">
+                <div class="project-card-no-image">
+                    <h3>webapp</h3>
+                    <h4>Webapp for byke is for viewing trip stats. Shows trip route on a map, and graphs trip stats for each trip. An API is how the byke interface uploads trip data to the web app.</h4><a class="btn btn-outline-primary btn-sm" role="button"
+                        href="https://github.com/tdroque/byke_webapp">View</a>
+                    <div class="tags">python</div>
+                </div>
+            </div>
+            </div>
+            </div>
+        </section>
     </main>
-	
-<!-- Footer -->
-<footer class="page-footer font-small bg-primary fixed-bottom">
-
-  <!-- Copyright -->
-  <div class="footer-copyright text-center text-white py-3">© 2019 Copyright:
-    <a href="https://tdroque.github.io/byke_interface/" style="color:white"> byke</a>
-  </div>
-  <!-- Copyright -->
-
-</footer>
-<!-- Footer -->
-
-
-    <!-- Optional JavaScript -->
-    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
-    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
-    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+    <footer class="page-footer" style="padding-bottom: 35px;">
+        <div class="container">
+            <div class="links">byke Capstone</div>
+        </div>
+    </footer>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.3.1/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pikaday/1.6.1/pikaday.min.js"></script>
 </body>
+
 </html>
