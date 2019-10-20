@@ -8,18 +8,29 @@
 # -----------------------------------------------------
 import tkinter as tk
 import csv
+import os
 from PIL import ImageTk, Image
 import logging
 import sqlite3
+from subprocess import call
+import smbus
+from gpiozero import LED
+
 import api
 import gps
 import buttons
 import temperature
 import motion
 
-#i2cBus = smbus.SMBus(1)     # Setup for i2c communication via smbus
+logging.basicConfig(filename='information/error.log', level=logging.DEBUG)  # logging file
+
+i2cBus = smbus.SMBus(1)     # Setup for i2c communication via smbus
 taillightPicAddress = 0x55    # i2c address of tail end pic
 motorPicAddress = 0x45    # i2c address of battery location pic
+
+headlight_dim = LED(26)     # dim headlight
+headlight_bright = LED(21)  # bright headlight
+
 
 global recordRunning    # variable for recording trip
 recordRunning = False
@@ -51,15 +62,74 @@ currentTrip = 0
 global temperature_queue
 temperature_queue = 0
 
-logging.basicConfig(filename='information\\interface.log', level=logging.DEBUG)  # logging file
-logging.info('--------------------PROGRAM START----------------------------')
+global entryid
+
+try:
+    conn = sqlite3.connect('information/byke.db')
+
+    logging.info('Opened database successfully')
+
+except:
+    logging.error('Database connection error')
+
+try:
+    conn.execute('''CREATE TABLE IF NOT EXISTS TRIP_STATS
+            (TRIP_ID  INTEGER PRIMARY KEY NOT NULL,
+            DATE          TEXT,
+            TIME          INTEGER,
+            MAX_SPEED     REAL,
+            AVG_SPEED     REAL,
+            DISTANCE      REAL,
+            UPHILL        REAL,
+            DOWNHILL      REAL);''')
+
+    conn.execute('''CREATE TABLE IF NOT EXISTS GPS_DATA
+             (ENTRY_ID INT PRIMARY KEY     NOT NULL,
+             TIME           TEXT    NOT NULL,
+             SPEED          REAL,
+             LAT            REAL,
+             LNG            REAL,
+             ALT            REAL,
+             CLIMB          REAL,
+             TRIP_ID        INTEGER NOT NULL);''')
+
+
+except:
+    logging.error('byke_data table error')
+
+conn.close()
+
 
 class App(tk.Tk):
     def __init__(self):
         tk.Tk.__init__(self)
+
+        global entryid
+        self.distance = 0
+
+        logging.info('--------------------INTERFACE START----------------------------')
+
+        conn = sqlite3.connect('information/byke.db')
+        cur = conn.cursor()
+        cur.execute("SELECT ENTRY_ID, TRIP_ID FROM GPS_DATA WHERE ENTRY_ID = (SELECT MAX(ENTRY_ID) FROM GPS_DATA)")
+        max_entry = cur.fetchone()
+        conn.close()
+
+        try:
+            entryid = max_entry[0]
+        except:
+            entryid = 0
+
+        try:
+            self.tripid = max_entry[1]
+        except:
+            self.tripid = 1
+        print('entryid: {}'.format(entryid))
+        print('tripid: {}'.format(self.tripid))
+
         self.data = []
         try:
-            with open('information\\save.txt', 'r') as file:  # read save file
+            with open('information/settings.txt', 'r') as file:  # read save file
                 csvReader = csv.reader(file)
                 for i, entry in enumerate(csvReader):
                     self.data.append(entry)
@@ -69,8 +139,7 @@ class App(tk.Tk):
         except:
             logging.critical('Load Save File Error')
             print('error')
-        # i2cBus.write_byte_data(motorPicAddress, 4, self.data[1])  # send max pwn setting to battery pic
-        # i2cBus.write_byte_data(taillightPicAddress, 1, int(self.data[7])) # set flashing tail light
+        # i2cBus.write_byte_data(motorPicAddress, 4, int(self.maxPwmSetting))  # send max pwn setting to battery pic
 
         if self.themeSetting is '0':  # theme setting
             self.colour = "black"  # dark colour
@@ -79,7 +148,7 @@ class App(tk.Tk):
             self.colour = 'white'
             self.textColour = 'black'
 
-        self.title('Byke')  # main window title
+        self.title('byke')  # main window title
         self.geometry('450x300')  # window size
         self.rowconfigure(0, weight=10)
         self.rowconfigure(1, weight=1)
@@ -88,7 +157,7 @@ class App(tk.Tk):
         self.columnconfigure(2, weight=1)
         self.config(bg=self.colour)  # window background colour
         # self.attributes('-fullscreen', True)   # make window fullscreen
-        self.bind('<Escape>', lambda e: self.destroy())  # kill app with escape key
+        self.bind('<Escape>', lambda e: os._exit(0))  # kill app with escape key
 
         self.tripframe = tk.Frame(self, bg=self.colour)  # screen for displaying trip data
         self.tripframe.grid(row=0, column=0, columnspan=3, sticky='nswe', ipady=20)
@@ -135,7 +204,7 @@ class App(tk.Tk):
         self.homeleft.rowconfigure(2, weight=1)
         self.homeleft.rowconfigure(3, weight=1)
 
-        self.batteryload = Image.open('static\\100battery.png')
+        self.batteryload = Image.open('static/100battery.png')
         self.batteryrender = ImageTk.PhotoImage(self.batteryload)
         self.batteryimage = tk.Label(self.homeleft, image=self.batteryrender, text='100%', compound='left',
                                      bg=self.colour, font=(None, 12), fg=self.textColour)
@@ -295,7 +364,7 @@ class App(tk.Tk):
         self.ptripframe.rowconfigure(3, weight=2)
         self.ptripframe.columnconfigure(0, weight=1)
 
-        self.ptripselect = tk.Spinbox(self.ptripframe, width=4, from_=0, to=10, font=(None, 18),
+        self.ptripselect = tk.Spinbox(self.ptripframe, width=4, from_=0, to=self.tripid, font=(None, 18),
                                       command=self.previousTripDisplay, buttonbackground=self.colour,
                                       fg=self.textColour, highlightbackground=self.colour, bg=self.colour)
         self.ptripselect.delete(0, 'end')
@@ -353,32 +422,30 @@ class App(tk.Tk):
         self.uploadframe.config(bg=self.colour)
 
         self.userlabel = tk.Label(self.uploadframe, text="Username: ", bg=self.colour, fg=self.textColour)
-        self.userlabel.grid(row=1, column=0)
+        self.userlabel.grid(row=0, column=0)
 
         self.usernameentry = tk.Entry(self.uploadframe, bd=5, bg=self.colour,)
-        self.usernameentry.grid(row=1, column=1)
+        self.usernameentry.grid(row=0, column=1)
 
         self.passwordlabel = tk.Label(self.uploadframe, text="Password: ", bg=self.colour, fg=self.textColour)
-        self.passwordlabel.grid(row=2, column=0)
+        self.passwordlabel.grid(row=1, column=0)
 
         self.passwordentry = tk.Entry(self.uploadframe, bd=5, bg=self.colour,)
-        self.passwordentry.grid(row=2, column=1)
-
-        self.triplabel = tk.Label(self.uploadframe, text="Trip Number: ", bg=self.colour, fg=self.textColour)
-        self.triplabel.grid(row=0, column=0)
-
-        self.buttonCommit = tk.Button(self.uploadframe, height=1, width=12, text="Get Input", fg=self.textColour,
-                                      highlightbackground=self.colour, bg=self.colour, activebackground=self.colour,
-                                      borderwidth=2, command=lambda: self.retrievevalues())
-        self.buttonCommit.grid(row=3, column=0)
+        self.passwordentry.grid(row=1, column=1)
 
         self.buttonSend = tk.Button(self.uploadframe, height=1, width=12, text="Upload Trip", fg=self.textColour,
                                     highlightbackground=self.colour, bg=self.colour, activebackground=self.colour,
-                                    borderwidth=2, command=lambda: api.upload(username, password, tripnum))
-        self.buttonSend.grid(row=3, column=1)
+                                    borderwidth=2, command=lambda: api.upload(username=self.usernameentry.get(),
+                                                                              password=self.passwordentry.get(),
+                                                                              tripnum=self.ptripselect.get()))
+        self.buttonSend.grid(row=1, column=2)
 
-        self.tripentry = tk.Entry(self.uploadframe, bd=5, bg=self.colour)
-        self.tripentry.grid(row=0, column=1)
+        self.buttonKeyboard = tk.Button(self.uploadframe, height=1, width=12, text="Keyboard", fg=self.textColour,
+                                        highlightbackground=self.colour, bg=self.colour, activebackground=self.colour,
+                                        borderwidth=2, command=lambda: call("matchbox-keyboard", shell=True))
+        self.buttonSend.grid(row=3, column=2)
+
+        self.tail_light_flash()
 
         self.after(1000, self.rungps)
         self.after(500, self.runbutton)
@@ -386,34 +453,93 @@ class App(tk.Tk):
         self.temperature_thread = temperature.temperatureThread()  # start temperature sensor thread
         self.temperature_thread.start()
 
+    # -----------------------------------------------------
+    # Function: rungps
+    # Author: Tanner L
+    # Date: 10/10/19
+    # Desc: function to be called every 1 sec and poll gps
+    # Inputs:
+    # Outputs:
+    # -----------------------------------------------------
     def rungps(self):
 
-        speed, time = gps.gps(recordRunning)
+        global savetimehr
+        global savetimemin
+        global starttimehr
+        global starttimemin
+
+        gpsValues, gpsdistance = gps.gps(record=recordRunning, tripid=self.tripid, xFlat=self.xRotationSet,
+                                         yFlat=self.yRotationSet)
+
+        speed, time, savetimemin, savetimehr = gps.gpsdisplay(gpsValues=gpsValues, timezone=int(self.timespinner.get()),
+                                                              dst=int(self.timedstselect.get()),
+                                                              units=int(self.unitSetting))
 
         self.speeddisplay.config(text=str(speed))
         self.timedisplay.config(text=str(time))
 
+        if recordRunning is True:  # calculate trip time
+            if savetimemin < starttimemin:
+                savetimemin = savetimemin + 60
+            if savetimehr < starttimehr:
+                savetimehr = savetimehr + 24
+            mindif = (savetimemin - starttimemin)
+            hrdif = (savetimehr - starttimehr)
+            diftime = int(hrdif/60 + mindif)
+
+            self.pvtTime.config(text=str('Time: {} MINS'.format(diftime)))  # display current elapsed time
+            self.pvtDate.config(text=str(gpsValues['time'][:10]))
+
+            maxSpeed = self.pvtMaxSpeed.cget('text')
+            maxSpeed = maxSpeed[11:(len(maxSpeed)-3)]
+
+            if float(maxSpeed) < speed:
+                self.pvtMaxSpeed.config(text='Max Speed: {} KMH'.format(speed))
+
+            self.distance += gpsdistance
+
+            self.pvtDistance.config(text='Distance: {} KM'.format(round(self.distance, 1)))
+
+            if gpsValues['climb'] is 1:
+                dup = self.pvtDUp.cget('text')
+                dup = round(float(dup[16:(len(dup)-2)]) + self.distance, 1)
+                self.pvtDUp.config(text='Uphill Distance: {} KM'.format(dup))
+            elif gpsValues['climb'] is -1:
+                ddown = self.pvtDDown.cget('text')
+                ddown = round(float(ddown[19:(len(ddown)-2)]) + self.distance, 1)
+                self.pvtDUp.config(text='Downhill Distance: {} KM'.format(ddown))
+
         self.tempUpdate()
         self.after(1000, self.rungps)
 
+    # -----------------------------------------------------
+    # Function: runbutton
+    # Author: Tanner L
+    # Date: 10/10/19
+    # Desc: function to be called every 500ms and poll buttons
+    # Inputs:
+    # Outputs:
+    # -----------------------------------------------------
     def runbutton(self):
 
-        headlight, rightturn, leftturn, horn, brake = buttons.buttonspress()
+        buttonStatus = buttons.buttonspress(maxPower=int(self.powerSpinner.get()))
 
-        if leftturn is True:
+        if buttonStatus['leftTurn'] is True:
             self.leftTurnSignal.config(fg='#00FF00')
         else:
             self.leftTurnSignal.config(fg=self.colour)
 
-        if rightturn is True:
+        if buttonStatus['rightTurn'] is True:
             self.rightTurnSignal.config(fg='#00FF00')
         else:
             self.rightTurnSignal.config(fg=self.colour)
 
-        if headlight is True:
+        if buttonStatus['headLight'] is True:
             self.headLight.config(text='\u2600', fg='blue')
+            headlight_bright.on()
         else:
             self.headLight.config(text='\u263C', fg=self.textColour)
+            headlight_bright.off()
 
         self.after(500, self.runbutton)
 
@@ -440,16 +566,17 @@ class App(tk.Tk):
         self.data.append(str(self.flashtaillight.get()))
 
         try:
-            with open('information\\save.txt', 'w') as file:  # write data out to save file
+            with open('information/settings.txt', 'w') as file:  # write data out to save file
                 csvWriter = csv.writer(file)
                 csvWriter.writerow(self.data)
+                logging.info('Successful Save')
         except:
             logging.error('Save Error')
 
         logging.info('---------------------------END OF PROGRAM------------------------')
 
         # call("sudo shutdown -h now", shell=True) # shutdown raspi
-        self.destroy()
+        os._exit(0)
 
     # -----------------------------------------------------
     # Function: tempUpdate
@@ -462,7 +589,7 @@ class App(tk.Tk):
     def tempUpdate(self):
         try:
             currenttemperature = temperature_queue
-            print(currenttemperature)
+
             if self.unitSetting is '1':
                 currenttemperature = str(round((currenttemperature * 1.8 + 32), 1)) + '\u2109'  # display temperature in F
             else:
@@ -553,31 +680,29 @@ class App(tk.Tk):
 
         global starttimemin
         global starttimehr
+        global savetimehr
+        global savetimemin
         global recordRunning
         global currentTrip
+        global gpslist
 
         #   try:
         if recordRunning is False:  # true when starting a trip recording
             recordRunning = True
 
-            self.ptripselect.delete(0, 'end')  # Set trip spinner to 0
-            self.ptripselect.insert(0, 0)
+            self.tripid += 1
+
+            self.ptripselect.config(to=self.tripid)
+            self.ptripselect.delete(0, 'end')  # Set trip spinner
+            self.ptripselect.insert(0, self.tripid)
 
             starttimemin = savetimemin
             starttimehr = savetimehr
 
-            try:
-                conn = sqlite3.connect('information\\byke.db')
-                cur = conn.cursor()
-                cur.execute("select max(trip_id) from GPS_DATA")
-                entry = cur.fetchone()
-                print(entry)
-                conn.close()
-
-                currentTrip = entry + 1
-
-            except:
-                currentTrip = 0
+            self.pvtDDown.config(text='Downhill Distance: 0 KM')
+            self.pvtDistance.config(text='Distance: 0 KM')
+            self.pvtDUp.config(text='Uphill Distance: 0 KM')
+            self.pvtMaxSpeed.config(text='Max Speed: 0 KMH')
 
             # self.previousTripDisplay()  # display current trip values
 
@@ -586,90 +711,93 @@ class App(tk.Tk):
         else:  # true when stopping a recording
             recordRunning = False
 
+            listStats = []
+
             self.startStop.configure(text='START')
 
+            #try:
+            conn = sqlite3.connect('information/byke.db')
+            cur = conn.cursor()
+
+            entry = "INSERT INTO GPS_DATA (ENTRY_ID, TIME, SPEED, LAT, LNG, ALT, CLIMB, TRIP_ID) \
+                                  VALUES (?, ?, ?, ? ,?, ?, ?, ?)"
+
+            cur.executemany(entry, gpslist)
             try:
-                conn = sqlite3.connect('information\\byke.db')
-                cur = conn.cursor()
-                cur.execute("select max(speed) from GPS_DATA WHERE trip_id =?", tripnum)
-                maxSpeed = cur.fetchone()
-
-                cur.execute("select avg(speed) from GPS_DATA WHERE trip_id =?", tripnum)
+                cur.execute("select avg(speed) from GPS_DATA WHERE trip_id =?", self.tripid)
                 avgSpeed = cur.fetchone()
-
-                listStats = ((triptime, tripdate, maxSpeed, avgSpeed, totaldistance, tripupdist, tripdowndist, tripnum))
-
-                entry2 = "INSERT INTO TRIP_STATS (TRIP_TIME, TRIP_DATE, TRIP_MAXSPEED, TRIP_AVGSPEED, TRIP_DISTANCE, " \
-                         "TRIP_UPDISTANCE, TRIP_DOWNDISTANCE, TRIP_ID)" \
-                         " VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-
-                conn.executemany(entry2, listStats)
-                conn.commit()
-                conn.close()
-
             except:
-                pass
+                avgSpeed = 0
 
+            maxSpeed = self.pvtMaxSpeed.cget('text')
+            maxSpeed = maxSpeed[11:(len(maxSpeed) - 3)]
 
-            self.ptripselect.delete(0, 'end')  # set trip spinner to 1
-            self.ptripselect.insert(0, 1)
-            self.previousTripDisplay()  # update displayed values
+            triptime = self.pvtTime.cget('text')
+            triptime = triptime[6:len(triptime)-4]
 
-    #    except:
+            tripupdist = self.pvtDUp.cget('text')
+            tripupdist = tripupdist[16: len(tripupdist)-3]
+
+            tripdowndist = self.pvtDDown.cget('text')
+            tripdowndist = tripdowndist[18: len(tripdowndist)-3]
+
+            tripdate = self.pvtDate.cget('text')
+
+            listStats.append((triptime, tripdate, float(maxSpeed), avgSpeed, totaldistance, tripupdist, tripdowndist,
+                              self.tripid))
+            print(listStats)
+            entry2 = "INSERT INTO TRIP_STATS (TIME, DATE, MAX_SPEED, AVG_SPEED, DISTANCE, " \
+                     "UPHILL, DOWNHILL, TRIP_ID)" \
+                     " VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+
+            conn.executemany(entry2, listStats)
+            conn.commit()
+            conn.close()
+
+            gpslist.clear()
+            listStats.clear()
+            # except:
+            #     pass
 
     # -----------------------------------------------------
     # Function: previousTripDisplay
     # Author: Tanner L
     # Date: /18
-    # Desc: Displays previouly recorded trip data
+    # Desc: Displays previous recorded trip data
     # Inputs:
     # Outputs:
     # -----------------------------------------------------
     def previousTripDisplay(self):  # function to scroll through trip data, selection from scroll box
 
-        tripNumber = int(self.ptripselect.get())  # get current value of trip select spin box
-
-        conn = sqlite3.connect('information\\byke.db')
-        cur = conn.cursor()
-
-        cur.execute("select * from TRIP_STATS WHERE trip_id =?", (tripNumber,))
-        tripData = cur.fetchone()
-
-        conn.close()
-
-        self.pvtDate.config(text=f'Date: {tripData[1]}')
-        self.pvtTime.config(text=f'Time: {tripData[2]}')
-
-        if self.unitsOption.get() == 1:
-            self.pvtMaxSpeed.config(text='Max Speed: ' + str(round((tripData[3] * 0.621371), 1)) + ' MPH')
-            self.pvtDistance.config(text='Distance: ' + str(round((tripData[5] * 0.621371), 1)) + ' Miles')
-            self.pvtDUp.config(text='Uphill Distance: ' + str(round((tripData[6] * 0.621371), 1)) + ' Miles')
-            self.pvtDDown.config(text='Downhill Distance: ' + str(round((tripData[7] * 0.621371), 1)) + ' Miles')
-
+        if recordRunning is True:
+            pass
         else:
-            self.pvtMaxSpeed.config(text=f'Max Speed: {tripData[3]} KM')
-            self.pvtDistance.config(text=f'Distance: {tripData[5]} KM')
-            self.pvtDUp.config(text=f'Uphill Distance: {tripData[6]} KM')
-            self.pvtDDown.config(text=f'Downhill Distance: {tripData[7]} KM')
+            tripNumber = int(self.ptripselect.get())  # get current value of trip select spin box
 
-    # --------------------------------------------
-    # Function: retrievevalues
-    # Date: 04/10/2019
-    # Author: Tanner L
-    # Desc: get user input from text fields and place into variables
-    # Inputs:
-    # Outputs:
-    # --------------------------------------------
-    # @staticmethod
-    def retrievevalues(self):
+            conn = sqlite3.connect('information/byke.db')
+            cur = conn.cursor()
 
-        global username
-        global password
-        global tripnum
+            cur.execute("select * from TRIP_STATS WHERE trip_id =?", (tripNumber,))
+            tripData = cur.fetchone()
+            print(tripData)
+            conn.close()
+            try:
+                self.pvtDate.config(text='Date: {}'.format(tripData[1]))
+                self.pvtTime.config(text='Time: {}'.format(tripData[2]))
 
-        username = self.usernameentry.get()
-        password = self.passwordentry.get()
-        tripnum = self.tripentry.get()
+                if self.unitsOption.get() == 1:
+                    self.pvtMaxSpeed.config(text='Max Speed: ' + str(round((tripData[3] * 0.621371), 1)) + ' MPH')
+                    self.pvtDistance.config(text='Distance: ' + str(round((tripData[5] * 0.621371), 1)) + ' Miles')
+                    self.pvtDUp.config(text='Uphill Distance: ' + str(round((tripData[6] * 0.621371), 1)) + ' Miles')
+                    self.pvtDDown.config(text='Downhill Distance: ' + str(round((tripData[7] * 0.621371), 1)) + ' Miles')
+
+                else:
+                    self.pvtMaxSpeed.config(text='Max Speed: {} KM'.format(tripData[3]))
+                    self.pvtDistance.config(text='Distance: {} KM'.format(tripData[5]))
+                    self.pvtDUp.config(text='Uphill Distance: {} KM'.format(tripData[6]))
+                    self.pvtDDown.config(text='Downhill Distance: {} KM'.format(tripData[7]))
+            except:
+                pass
 
     # -----------------------------------------------------
     # Function: motorCurrent
@@ -686,19 +814,19 @@ class App(tk.Tk):
         self.batteryimage.config(text=str(batteryPercent) + '%')  # motor current
 
         if 76 <= batteryPercent <= 100:
-            self.batteryload = Image.open('information\\100battery.png')
+            self.batteryload = Image.open('information/100battery.png')
             self.batteryrender = ImageTk.PhotoImage(self.batteryload)
         elif 51 <= batteryPercent <= 75:
-            self.batteryload = Image.open('information\\75battery.png')
+            self.batteryload = Image.open('information/75battery.png')
             self.batteryrender = ImageTk.PhotoImage(self.batteryload)
         elif 26 <= batteryPercent <= 50:
-            self.batteryload = Image.open('information\\50battery.png')
+            self.batteryload = Image.open('information/50battery.png')
             self.batteryrender = ImageTk.PhotoImage(self.batteryload)
         elif 0 <= batteryPercent <= 25:
-            self.batteryload = Image.open('information\\25battery.png')
+            self.batteryload = Image.open('information/25battery.png')
             self.batteryrender = ImageTk.PhotoImage(self.batteryload)
         else:
-            self.batteryload = Image.open('information\\100battery.png')
+            self.batteryload = Image.open('information/100battery.png')
             self.batteryrender = ImageTk.PhotoImage(self.batteryload)
 
     # -----------------------------------------------------
@@ -719,11 +847,11 @@ class App(tk.Tk):
             self.textColour = 'white'
 
         self.config(bg=self.colour)
-        self.tripbutton.config(highlightbackground=self.colour, bg=self.colour, activebackground=self.colour,
+        self.tripbutton.config(highlightbackground=self.colour, bg=self.colour, activebackground=self.textColour,
                                fg=self.textColour)
-        self.homebutton.config(highlightbackground=self.colour, bg=self.colour, activebackground=self.colour,
+        self.homebutton.config(highlightbackground=self.colour, bg=self.colour, activebackground=self.textColour,
                                fg=self.textColour)
-        self.settingsbutton.config(highlightbackground=self.colour, bg=self.colour, activebackground=self.colour,
+        self.settingsbutton.config(highlightbackground=self.colour, bg=self.colour, activebackground=self.textColour,
                                    fg=self.textColour)
 
         self.homeframe.config(bg=self.colour)

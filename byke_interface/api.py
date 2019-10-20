@@ -1,42 +1,52 @@
 # --------------------------------------------
-# Function: upload
+# File: upload
 # Date: 04/10/2019
 # Author: Tanner L
-# Desc: Upload trip gps entries and trip stats for given trip number form given database
 # Modified:
-# Inputs:
-# Outputs:
+# Desc: Upload trip gps entries and trip stats for
+#       given trip number form given database
 # --------------------------------------------
+import sqlite3
+import requests
+from requests.auth import HTTPBasicAuth
+import logging
+import random
+from subprocess import call
 
-baseurl = 'https://byke.ca/'
 
-
+# -----------------------------------------------------
+# Function: upload
+# Author: Tanner L
+# Date: 19/10/19
+# Desc: uploads trip data to byke web app via api
+# Inputs: username, password, trip number
+# Outputs:
+# -----------------------------------------------------
 def upload(username, password, tripnum):
 
-    import sqlite3
-    import requests
-    from requests.auth import HTTPBasicAuth
+    baseurl = 'https://byke.ca/'  # base url for web app api urls
 
-    tripnum = int(tripnum)
-    print(tripnum)
+    entry_offset = random.randint(10000, 100001)  # offset used to attempt to avoid duplicate entry_id
+    tripnum = int(tripnum)  # make sure tripnum is an integer
 
-    req = requests.get(baseurl + 'api/login', auth=HTTPBasicAuth(username, password))
-    token = req.json()
+    tok = requests.get(baseurl + 'api/login', auth=HTTPBasicAuth(username, password))  # user authentication
+    token = tok.json()  # user token, pars json data into variable
 
-    conn = sqlite3.connect('byke.db')
+    conn = sqlite3.connect('information/byke.db')  # connect to byke sqlite database
+    try:
+        cur = conn.cursor()
+        cur.execute("SELECT * FROM GPS_DATA WHERE trip_id=?", (tripnum,)) # select all entries with matching trip number
+        gpsentries = cur.fetchall()
 
-    cur = conn.cursor()
-    cur.execute("SELECT * FROM GPS_DATA WHERE trip_id=?", (tripnum,))
+        cur.execute("SELECT * FROM TRIP_STATS WHERE trip_id=?", (tripnum,))  # select trip stats entry for trip number
+        tripstats = cur.fetchone()
 
-    rows = cur.fetchall()
-
-    cur.execute("SELECT * FROM TRIP_STATS WHERE trip_id=?", (tripnum,))
-
-    tripStats = cur.fetchone()
+    except:
+        logging.error('API error')
 
     conn.close()
 
-    for row in rows:
+    for row in gpsentries:      # upload each entry to web app individually, not correct - needs work
         data = {"time": row[1],
                 "speed": row[2],
                 "lng": row[4],
@@ -44,21 +54,23 @@ def upload(username, password, tripnum):
                 "climb": row[5],
                 "user": username,
                 "trip_id": row[7],
-                "entry_id": row[0]}
-
+                "entry_id": int(row[0]) + entry_offset}
+        # post request to set data to web app
         response = requests.post(baseurl + 'api/trip/add/gps', headers={'login_token': token['token']}, json=data)
         print(response.status_code)
 
-    stats = {
-        "time": tripStats.time,
-        "date": tripStats.date,
-        "max_speed": tripStats.max_speed,
-        "avg_speed": tripStats.avg_speed,
-        "uphill": tripStats.uphill,
-        "downhill": tripStats.downhill,
-        "distance": tripStats.distance,
-        "trip_id": tripStats.trip_id,
+    stats = {                 # putting data into format for sending to web app
+        "time": tripstats[1],
+        "date": tripstats[2],
+        "max_speed": tripstats[3],
+        "avg_speed": tripstats[4],
+        "uphill": tripstats[6],
+        "downhill": tripstats[7],
+        "distance": tripstats[5],
+        "trip_id": tripstats[0],
         "user": username}
+    # post request to upload trip stats to web app
     response = requests.post(baseurl + 'api/trip/add/stats', headers={'login_token': token['token']}, json=stats)
     print(response.status_code)
-    print("Done\n")
+    print("Done")
+

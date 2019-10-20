@@ -1,85 +1,81 @@
 # -----------------------------------------------------
-# Function: buttonspress
+# File: buttons.py
 # Author: Tanner L
-# Date: 09/20/19
+# Date: 10/10/19
 # Desc: Handles button presses
-# Inputs:
-# Outputs:
 # -----------------------------------------------------
 import logging
-import interface
+import smbus    # i2c smbus for pic communication
+from gpiozero import Button, LED, TonalBuzzer     # import gpio function for raspberry pi
+from gpiozero.tones import Tone  # import tones for horn function
 
-# raspberry pi libraries
-# import smbus    # i2c smbus for pic communication
-# import gpsd     # Gps library import
-# from gpiozero import Button, LED     # import gpio function for raspberry pi
 # i2c addresses
-#i2cBus = smbus.SMBus(1)     # Setup for i2c communication via smbus
+i2cBus = smbus.SMBus(1)     # Setup for i2c communication via smbus
 tailEndPicAddress = 0x55    # i2c address of tail end pic
 batteryPicAddress = 0x45    # i2c address of battery location pic
-headEndPicAddress = 0x35    # i2c address of head end pic
 
 # gpio pins
-# leftButton = Button(6)     # left turn button
-# rightButton = Button(5)    # right turn button
-# headLightButton = Button(19)    # headlight button
-# hornButton = Button(13)     # horn button
-# brakeButton = Button(20)      # brake lever
-
-# headlight_dim = LED(26)     # dim headlight
-# headlight_bright = LED(21)  # bright headlight
+leftButton = Button(6)        # left turn button
+rightButton = Button(5)       # right turn button
+headLightButton = Button(19)  # headlight button
+hornButton = Button(13)       # horn button
+brakeButton = Button(20)      # brake lever
+horn = TonalBuzzer(12)        # horn
 
 
-def buttonspress():  # function for handling button presses
+# -----------------------------------------------------
+# Function: buttonspress
+# Author: Tanner L
+# Date: 10/10/19
+# Desc: poll buttons and set registers in remote microcontrollers
+# Inputs: maxpower
+# Outputs: buttonStatus
+# -----------------------------------------------------
+def buttonspress(maxPower):  # function for handling button presses
+    # dictionary to store if button is pressed
+    buttonStatus = {'leftTurn': False, 'rightTurn': False, 'brake': False, 'headLight': False, 'horn': False}
 
-    rightpressed = 0
-    leftpressed = 0
-    brakepressed = 0
-    buttonspressed = [False, False, False, False, False]
+    #try:
+    if leftButton.is_pressed:  # left signal button
+        i2cBus.write_byte_data(tailEndPicAddress, 0, 1)
+        buttonStatus['leftTurn'] = True
+    else:
+        i2cBus.write_byte_data(tailEndPicAddress, 0, 0)
+        buttonStatus['leftTurn'] = False
 
-    try:
-        if leftButton.is_pressed and leftpressed == 0:  # left signal button
-            i2cBus.write_byte_data(tailEndPicAddress, 0, True)
-            leftpressed = 1
-            buttonspressed[0] = True
+    if rightButton.is_pressed:  # right signal button
+        i2cBus.write_byte_data(tailEndPicAddress, 1, True)
+        buttonStatus['rightTurn'] = True
+    else:
+        i2cBus.write_byte_data(tailEndPicAddress, 1, False)
+        buttonStatus['rightTurn'] = False
 
-        elif leftButton.is_pressed == 0:
-            leftpressed = 0
-            i2cBus.write_byte_data(tailEndPicAddress, 0, False)
-            buttonspressed[0] = False
+    if brakeButton.is_pressed:  # brake signal button
+        i2cBus.write_byte_data(tailEndPicAddress, 5, True)
+        buttonStatus['brake'] = True
+    else:
+        i2cBus.write_byte_data(tailEndPicAddress, 5, False)
+        buttonStatus['brake'] = False
 
-        if rightButton.is_pressed and rightpressed == 0:  # right signal button
-            rightpressed = 1
-            i2cBus.write_byte_data(tailEndPicAddress, 1, True)
-            buttonspressed[1] = True
+    if headLightButton.is_pressed:  # headlight button
+        i2cBus.write_byte_data(tailEndPicAddress, 2, True)
+        i2cBus.write_byte_data(tailEndPicAddress, 3, True)
+        buttonStatus['headLight'] = True
+    else:
+        i2cBus.write_byte_data(tailEndPicAddress, 2, False)
+        i2cBus.write_byte_data(tailEndPicAddress, 3, False)
+        buttonStatus['headLight'] = False
 
-        elif rightButton.is_pressed == 0:
-            rightpressed = 0
-            i2cBus.write_byte_data(tailEndPicAddress, 1, False)
-            buttonspressed[1] = False
+    if hornButton.is_pressed:
+        horn.play(Tone(220.0))
+        buttonStatus['horn'] = True
+    else:
+        horn.stop()
+        buttonStatus['horn'] = False
 
-        if brakeButton.is_pressed and brakepressed == 0:  # brake signal button
-            brakepressed = 1
-            i2cBus.write_byte_data(tailEndPicAddress, 5, True)
-            buttonspressed[2] = True
+    # i2cBus.write_byte_data(batteryPicAddress, 4, int(maxPower))  # send max power values to pic
 
-        elif brakeButton.is_pressed == 0:
-            brakepressed = 0
-            i2cBus.write_byte_data(tailEndPicAddress, 5, False)
-            buttonspressed[2] = False
+    # except:
+    #     logging.error('Buttons Error')
 
-        if headLightButton.is_pressed:  # headlight button
-            i2cBus.write_byte_data(tailEndPicAddress, 2, True)
-            i2cBus.write_byte_data(tailEndPicAddress, 3, True)
-            buttonspressed[3] = True
-        else:
-            i2cBus.write_byte_data(tailEndPicAddress, 2, False)
-            i2cBus.write_byte_data(tailEndPicAddress, 3, False)
-            buttonspressed[3] = False
-
-        i2cBus.write_byte_data(batteryPicAddress, 4, int(interface.powerSpinner.get()))  # send max power values to pic
-
-    except:
-        logging.error('Buttons Error')
-
-    return buttonspressed
+    return buttonStatus
