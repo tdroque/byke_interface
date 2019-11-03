@@ -1,6 +1,6 @@
 # --------------------------------------------
 # File: upload
-# Date: 04/10/2019
+# Date: 19/10/2019
 # Author: Tanner L
 # Modified:
 # Desc: Upload trip gps entries and trip stats for

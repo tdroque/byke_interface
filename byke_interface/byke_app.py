@@ -7,7 +7,7 @@
 #       buttons, motor controller and taillight. Controls headlight, save trip
 #       stats and upload to web app
 # -----------------------------------------------------
-import interface
+import byke_interface.interface    # byke interface module
 
 if __name__ is '__main__':
-    interface.App()
+    byke_interface.interface.App()     # run app class from interface module

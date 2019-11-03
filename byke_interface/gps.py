@@ -7,11 +7,11 @@
 # Outputs:
 # -----------------------------------------------------
 import logging
-import motion
-import interface
+import byke_interface.motion
+import byke_interface.interface
 
 # raspberry pi libraries
-import gpsd  # Gps library import
+# import gpsd  # Gps library import
 
 
 # -----------------------------------------------------
@@ -39,7 +39,7 @@ def gps(record, tripid, xFlat, yFlat):  # communicate with gps module
             gpsvalues['lng'] = gpsData.lon  # longitude
             gpsvalues['alt'] = gpsData.alt  # altitude
 
-            xrotate, yrotate = motion.motion()  # motion function to for current angle
+            xrotate, yrotate = byke_interface.motion.motion()  # motion function to for current angle
 
             gpsvalues['climb'] = xrotate
 
@@ -57,10 +57,11 @@ def gps(record, tripid, xFlat, yFlat):  # communicate with gps module
                 gpsvalues['speed'] = 0.0
 
             if record is True:  # if recording trip save values
-                interface.entryid += 1  # increment entry_id, entry_id must be unique for entry into database
-                interface.gpslist.append((interface.entryid, gpsvalues['time'], float(gpsvalues['speed']),
-                                          float(gpsvalues['lat']), float(gpsvalues['lng']), gpsvalues['alt'],
-                                          gpsvalues['climb'], tripid))
+                byke_interface.interface.entryid += 1  # increment entry_id, entry_id must be unique for entry into database
+                byke_interface.interface.gpslist.append((byke_interface.interface.entryid, gpsvalues['time'],
+                                                         float(gpsvalues['speed']), float(gpsvalues['lat']),
+                                                         float(gpsvalues['lng']), gpsvalues['alt'],
+                                                         gpsvalues['climb'], tripid))
 
         # except:
         #   logging.error('GPS Read Error')

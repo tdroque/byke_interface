@@ -1,36 +1,34 @@
 # -----------------------------------------------------
 # Function: class - App
 # Author: Tanner L
-# Date: 09/20/19
+# Date: 09/09/19
 # Desc: App interface
 # Inputs:
 # Outputs:
 # -----------------------------------------------------
-import tkinter as tk
-import csv
-import os
-from PIL import ImageTk, Image
-import logging
-import sqlite3
-from subprocess import call
-import smbus
-from gpiozero import LED
+import tkinter as tk            # gui builder
+import csv                      # used to parse settings file
+import os                       # used for shutdown application
+from PIL import ImageTk, Image  # used for battery percent image
+import logging                  # used for app logging
+import sqlite3                  # used to interact with sqlite database
+from subprocess import call     # used to call on screen keyboard and shutdown raspberry pi
+# import smbus                    # used for i2c communication via smbus protocol
+# from gpiozero import LED        # used to control the headlight circuits
 
-import api
-import gps
-import buttons
-import temperature
-import motion
+import byke_interface.api                      # byke api module, api function
+import byke_interface.gps                      # byke gps module, gps functions
+import byke_interface.buttons                  # byke buttons module, button functions
+import byke_interface.temperature              # byke temperature module, temperature sensor thread
+import byke_interface.motion                   # byke motion module, motion sensor functions
 
 logging.basicConfig(filename='information/error.log', level=logging.DEBUG)  # logging file
 
-i2cBus = smbus.SMBus(1)     # Setup for i2c communication via smbus
-taillightPicAddress = 0x55    # i2c address of tail end pic
-motorPicAddress = 0x45    # i2c address of battery location pic
+# i2cBus = smbus.SMBus(1)     # Setup for i2c communication via smbus
+taillightPicAddress = 0x55  # i2c address of tail end pic
+motorPicAddress = 0x45      # i2c address of battery location pic
 
-headlight_dim = LED(26)     # dim headlight
-headlight_bright = LED(21)  # bright headlight
-
+# headlight_led = LED(21)   # headlight
 
 global recordRunning    # variable for recording trip
 recordRunning = False
@@ -65,14 +63,15 @@ temperature_queue = 0
 global entryid
 
 try:
-    conn = sqlite3.connect('information/byke.db')
+    conn = sqlite3.connect('information/byke.db')   # connect to/create byke database in information folder
 
-    logging.info('Opened database successfully')
+    logging.info('Opened database successfully')    # log correct database opening
 
 except:
-    logging.error('Database connection error')
+    logging.error('Database connection error')      # log database connection error
 
 try:
+    # create table in db for storing trip stats
     conn.execute('''CREATE TABLE IF NOT EXISTS TRIP_STATS
             (TRIP_ID  INTEGER PRIMARY KEY NOT NULL,
             DATE          TEXT,
@@ -83,6 +82,7 @@ try:
             UPHILL        REAL,
             DOWNHILL      REAL);''')
 
+    # create table for storing gps entries
     conn.execute('''CREATE TABLE IF NOT EXISTS GPS_DATA
              (ENTRY_ID INT PRIMARY KEY     NOT NULL,
              TIME           TEXT    NOT NULL,
@@ -95,97 +95,111 @@ try:
 
 
 except:
-    logging.error('byke_data table error')
+    logging.error('byke_data table error')  # log table creation error
 
-conn.close()
+conn.close()    # disconnect from database
 
 
-class App(tk.Tk):
+# -----------------------------------------------------
+# Function: class - App
+# Author: Tanner L
+# Date: 09/09/19
+# Desc: main application class, interface creation and loop
+# Inputs:
+# Outputs:
+# -----------------------------------------------------
+class App(tk.Tk):   # creat class and inherit tkinter functions
     def __init__(self):
         tk.Tk.__init__(self)
 
-        global entryid
-        self.distance = 0
+        global entryid              # used to track entryid for gps entries into database
+        self.total_distance = 0     # distance travelled
+        self.uphill_distance = 0    # uphill distance travelled
+        self.downhill_distance = 0  # downhill distance travelled
 
-        logging.info('--------------------INTERFACE START----------------------------')
+        logging.info('--------------------INTERFACE START----------------------------')  # log interface start
 
-        conn = sqlite3.connect('information/byke.db')
-        cur = conn.cursor()
+        connection = sqlite3.connect('information/byke.db')  # connect to db
+        cur = connection.cursor()
+        # query to get max entryid and trip number from db
         cur.execute("SELECT ENTRY_ID, TRIP_ID FROM GPS_DATA WHERE ENTRY_ID = (SELECT MAX(ENTRY_ID) FROM GPS_DATA)")
         max_entry = cur.fetchone()
-        conn.close()
+        connection.close()
 
         try:
-            entryid = max_entry[0]
+            entryid = max_entry[0]      # set entryid to max entryid from db
         except:
-            entryid = 0
+            entryid = 0                 # entryid is 0 if no trips in db
 
         try:
-            self.tripid = max_entry[1]
+            self.tripid = max_entry[1]  # set tripid to max tripid from db
         except:
-            self.tripid = 1
-        print('entryid: {}'.format(entryid))
-        print('tripid: {}'.format(self.tripid))
+            self.tripid = 0             # if no trips in db, start with trip set to 0
 
-        self.data = []
         try:
-            with open('information/settings.txt', 'r') as file:  # read save file
-                csvReader = csv.reader(file)
-                for i, entry in enumerate(csvReader):
-                    self.data.append(entry)
-            self.themeSetting, self.maxPwmSetting, self.timeZoneSetting, self.dstSetting, self.unitSetting, \
-            self.xRotationSet, self.yRotationSet, self.flashTaillightSetting, *_ = self.data[0]
-
+            with open('information/settings.txt', 'r') as file:  # open settings file file
+                csvreader = csv.DictReader(file)                     # setup csv reader
+                for entry in csvreader:            # read values from file
+                    self.settings = dict(entry)
+            
         except:
             logging.critical('Load Save File Error')
-            print('error')
+
         # i2cBus.write_byte_data(motorPicAddress, 4, int(self.maxPwmSetting))  # send max pwn setting to battery pic
 
-        if self.themeSetting is '0':  # theme setting
-            self.colour = "black"  # dark colour
-            self.textColour = 'white'
+        if self.settings['Theme'] is '0':   # theme setting
+            self.colour = "black"      # background colour
+            self.textColour = 'white'  # text colour
         else:
             self.colour = 'white'
             self.textColour = 'black'
 
-        self.title('byke')  # main window title
-        self.geometry('450x300')  # window size
+        self.title('byke')                          # main window title
+        self.geometry('450x300')                    # window size
         self.rowconfigure(0, weight=10)
         self.rowconfigure(1, weight=1)
         self.columnconfigure(0, weight=1)
         self.columnconfigure(1, weight=2)
         self.columnconfigure(2, weight=1)
-        self.config(bg=self.colour)  # window background colour
-        # self.attributes('-fullscreen', True)   # make window fullscreen
+        self.config(bg=self.colour)                 # window background colour
+        # self.attributes('-fullscreen', True)      # make window fullscreen
         self.bind('<Escape>', lambda e: os._exit(0))  # kill app with escape key
 
-        self.tripframe = tk.Frame(self, bg=self.colour)  # screen for displaying trip data
+        # previous trip data screen
+        self.tripframe = tk.Frame(self, bg=self.colour)
         self.tripframe.grid(row=0, column=0, columnspan=3, sticky='nswe', ipady=20)
 
-        self.settingsframe = tk.Frame(self, bg=self.colour)  # screen for settings
+        # settings screen
+        self.settingsframe = tk.Frame(self, bg=self.colour)
         self.settingsframe.grid(row=0, column=0, columnspan=3, sticky='nswe')
 
-        self.uploadframe = tk.Frame(self, bg=self.colour)  # upload screen
+        # trip upload screen
+        self.uploadframe = tk.Frame(self, bg=self.colour)
         self.uploadframe.grid(row=0, column=0, columnspan=3, sticky='nswe')
 
+        # home screen
         self.homeframe = tk.Frame(self, bg=self.colour)  # main/home screen
         self.homeframe.grid(row=0, column=0, columnspan=3, sticky='nswe')
 
+        # button to show trip screen
         self.tripbutton = tk.Button(self, text='TRIPS', highlightbackground=self.colour, bg=self.colour,
                                     activebackground=self.colour, borderwidth=2, fg=self.textColour,
-                                    command=lambda: self.tripframe.tkraise())  # button to raise trip screen
+                                    command=lambda: self.tripframe.tkraise())
         self.tripbutton.grid(row=1, column=0, sticky='nswe', ipady=5, ipadx=10)
 
+        # button to show home screen
         self.homebutton = tk.Button(self, text='HOME', highlightbackground=self.colour, bg=self.colour,
                                     activebackground=self.colour, borderwidth=2, fg=self.textColour,
                                     command=lambda: self.homeframe.tkraise())  # button to raise home screen
         self.homebutton.grid(row=1, column=1, sticky='nswe')
 
+        # button to show setting screen
         self.settingsbutton = tk.Button(self, text='SETTINGS', highlightbackground=self.colour, bg=self.colour,
                                         activebackground=self.colour, borderwidth=2, fg=self.textColour,
                                         command=lambda: self.settingsframe.tkraise())  # button to raise settings screen
         self.settingsbutton.grid(row=1, column=2, sticky='nswe')
 
+        # home screen layout configuration
         self.homeframe.columnconfigure(0, weight=1)
         self.homeframe.columnconfigure(1, weight=1)
         self.homeframe.columnconfigure(2, weight=1)
@@ -204,48 +218,60 @@ class App(tk.Tk):
         self.homeleft.rowconfigure(2, weight=1)
         self.homeleft.rowconfigure(3, weight=1)
 
+        # battery percent image display
         self.batteryload = Image.open('static/100battery.png')
         self.batteryrender = ImageTk.PhotoImage(self.batteryload)
         self.batteryimage = tk.Label(self.homeleft, image=self.batteryrender, text='100%', compound='left',
                                      bg=self.colour, font=(None, 12), fg=self.textColour)
         self.batteryimage.grid(row=0, column=0, sticky='wn', padx=10, pady=10)
 
+        # motor current draw
         self.currentdisplay = tk.Label(self.homeleft, text=0, bg=self.colour, fg=self.textColour)
         self.currentdisplay.grid(row=1, column=0, sticky='nw', padx=5)
 
+        # temperature display
         self.temperaturedisplay = tk.Label(self.homeleft, text=0, bg=self.colour, fg=self.textColour, font=(None, 15))
         self.temperaturedisplay.grid(row=2, column=0, sticky='nw', padx=5)
 
+        # time display
         self.timedisplay = tk.Label(self.homeframe, text='Time', bg=self.colour, fg=self.textColour, font=(None, 15))
         self.timedisplay.grid(row=0, column=2, sticky='NEW', pady=10)
 
+        # display if headlight is on or off
         self.headLight = tk.Label(self.homeframe, text='\u263C', bg=self.colour, fg=self.textColour, font=(None, 40))
         self.headLight.grid(row=0, column=4, sticky='ne', padx=10)
 
+        # button to shutdown
         self.shutdownbutton = tk.Button(self.homeleft, text='Shutdown', highlightbackground=self.colour, bg=self.colour,
                                         activebackground=self.colour, borderwidth=2, fg=self.textColour, command=self.quit_app)
         self.shutdownbutton.grid(row=3, column=0, sticky='sw', pady=5, padx=5, ipadx=5, ipady=5)
 
+        # speed display
         self.speeddisplay = tk.Label(self.homeframe, text='SPEED', bg=self.colour, fg=self.textColour, font=(None, 40))
         self.speeddisplay.grid(row=1, column=2, sticky='new')
 
+        # trip record button
         self.startStop = tk.Label(self.homeframe, text='START', bg=self.colour, fg='#00FF00', font=(None, 16))
         self.startStop.grid(row=2, column=4, rowspan=2, sticky='nesw')
         self.startStop.bind('<Button-1>', self.record)
 
+        # speed units
         self.unitdisplay = tk.Label(self.homeframe, text='KMH', bg=self.colour, fg=self.textColour, font=(None, 18))
         self.unitdisplay.grid(row=2, column=2)
-        if self.unitSetting is '0':  # set unit selection from save data
+        if self.settings['Units'] is '0':  # set unit selection from save data
             self.unitdisplay.config(text='KMH')
         else:
             self.unitdisplay.config(text='MPH')
 
+        # display if left turn signal is active
         self.leftTurnSignal = tk.Label(self.homeframe, fg=self.colour, bg=self.colour, text='\u2190', font=(None, 50))
         self.leftTurnSignal.grid(row=2, column=1)
 
+        # display if right turn is active
         self.rightTurnSignal = tk.Label(self.homeframe, fg=self.colour, bg=self.colour, text='\u2192', font=(None, 50))
         self.rightTurnSignal.grid(row=2, column=3)
 
+        # setting screen configuration
         self.settingsframe.columnconfigure(0, weight=1)
         self.settingsframe.columnconfigure(1, weight=1)
         self.settingsframe.columnconfigure(2, weight=1)
@@ -254,6 +280,7 @@ class App(tk.Tk):
         self.settingsframe.rowconfigure(1, weight=1)
         self.settingsframe.rowconfigure(2, weight=1)
 
+        # radio buttons to select metric or imperial units
         self.unitsText = tk.LabelFrame(self.settingsframe, text='Units', bg=self.colour, fg=self.textColour,
                                        borderwidth=0, font=(None, 13))
         self.unitsText.grid(row=0, column=0, sticky='nsew', pady=20, padx=0, rowspan=3)
@@ -263,7 +290,7 @@ class App(tk.Tk):
         self.unitsText.columnconfigure(0, weight=1)
 
         self.unitsOption = tk.IntVar()
-        self.unitsOption.set(int(self.unitSetting))
+        self.unitsOption.set(int(self.settings['Units']))
 
         self.imperialText = tk.Radiobutton(self.unitsText, bg=self.colour, activebackground=self.colour,
                                            highlightcolor=self.colour, text='Imperial (MPH, \u2109)',
@@ -279,8 +306,9 @@ class App(tk.Tk):
 
         self.metrictext.grid(row=1, column=0, sticky='w')
 
+        # check box to select flashing tail light option
         self.flashtaillight = tk.IntVar()
-        self.flashtaillight.set(int(self.flashTaillightSetting))
+        self.flashtaillight.set(int(self.settings['Flashing_Taillight']))
 
         self.taillightflash = tk.Checkbutton(self.unitsText, text='Flashing Tail Light', activebackground=self.colour,
                                              highlightcolor=self.colour, fg=self.textColour, selectcolor=self.colour,
@@ -289,6 +317,7 @@ class App(tk.Tk):
 
         self.taillightflash.grid(row=2, column=0, sticky='w')
 
+        # radio button to select between light and dark theme
         self.displaytheme = tk.LabelFrame(self.settingsframe, text='Theme', bg=self.colour, borderwidth=0,
                                           fg=self.textColour, font=(None, 13))
         self.displaytheme.grid(row=0, column=1, sticky='nsew', pady=20, padx=0, rowspan=3)
@@ -298,7 +327,7 @@ class App(tk.Tk):
         self.displaytheme.columnconfigure(0, weight=1)
 
         self.themeselect = tk.IntVar()
-        self.themeselect.set((int(self.themeSetting)))
+        self.themeselect.set((int(self.settings['Theme'])))
 
         self.lighttheme = tk.Radiobutton(self.displaytheme, bg=self.colour, activebackground=self.colour,
                                          highlightcolor=self.colour, fg=self.textColour, selectcolor = self.colour,
@@ -312,11 +341,13 @@ class App(tk.Tk):
                                         font=(None, 13))
         self.darktheme.grid(row=1, column=0, sticky='w')
 
+        # button to calibrate motion setting
         self.motioncal = tk.Button(self.displaytheme, text='Motion', highlightbackground=self.colour, bg=self.colour,
                                    activebackground=self.colour, borderwidth=0, command=self.motion_calibrate,
                                    fg=self.textColour, font=(None, 13))
         self.motioncal.grid(row=2, column=0)
 
+        # spinner box to set max pwm, 30-100% in 10% increments
         self.maxPowerframe = tk.LabelFrame(self.settingsframe, text='Max Power % ', bg=self.colour, borderwidth=0,
                                            fg=self.textColour, font=(None, 13))
         self.maxPowerframe.grid(row=0, column=3, sticky='nsew', pady=20)
@@ -324,12 +355,13 @@ class App(tk.Tk):
         self.maxPowerframe.columnconfigure(0, weight=1)
 
         self.powerSpinner = tk.Spinbox(self.maxPowerframe, width=4, from_=30, to=100, increment=10, font=(None, 18),
-                                       buttonbackground=self.colour, highlightbackground=self.colour, fg=self.textColour,
-                                       bg=self.colour)
+                                       buttonbackground=self.colour, highlightbackground=self.colour,
+                                       fg=self.textColour, bg=self.colour)
         self.powerSpinner.delete(0, 'end')
-        self.powerSpinner.insert(0, int(self.maxPwmSetting))
+        self.powerSpinner.insert(0, int(self.settings['Max_PWM']))
         self.powerSpinner.grid(row=0, column=0, sticky='nsew')
 
+        # time zone settings, timezone spinner box and dst checkbox
         self.timesetframe = tk.LabelFrame(self.settingsframe, text='Time Zone', bg=self.colour, borderwidth=0,
                                           fg=self.textColour, font=(None, 13))
         self.timesetframe.grid(row=1, column=3, sticky='nsew', pady=10)
@@ -339,11 +371,11 @@ class App(tk.Tk):
         self.timespinner = tk.Spinbox(self.timesetframe, width=3, from_=-11, to=12, font=(None, 18), bg=self.colour,
                                       fg=self.textColour, buttonbackground=self.colour, highlightbackground=self.colour)
         self.timespinner.delete(0, 'end')
-        self.timespinner.insert(0, int(self.timeZoneSetting) - 23)
+        self.timespinner.insert(0, int(self.settings['Time_Zone']))
         self.timespinner.grid(row=0, column=0, sticky='nsew')
 
         self.timedstselect = tk.IntVar()
-        self.timedstselect.set(int(self.dstSetting))
+        self.timedstselect.set(int(self.settings['DST']))
 
         self.timedst = tk.Checkbutton(self.settingsframe, text='DST ON', activebackground=self.colour,
                                       highlightcolor=self.colour, fg=self.textColour, selectcolor = self.colour,
@@ -351,6 +383,7 @@ class App(tk.Tk):
                                       font=(None, 13))
         self.timedst.grid(row=2, column=3, pady=10)
 
+        # trip data screen configuration
         self.tripframe.rowconfigure(0, weight=1)
         self.tripframe.rowconfigure(1, weight=1)
         self.tripframe.columnconfigure(0, weight=1)
@@ -364,22 +397,25 @@ class App(tk.Tk):
         self.ptripframe.rowconfigure(3, weight=2)
         self.ptripframe.columnconfigure(0, weight=1)
 
-        self.ptripselect = tk.Spinbox(self.ptripframe, width=4, from_=0, to=self.tripid, font=(None, 18),
+        # spinner box to select which trip to display
+        self.ptripselect = tk.Spinbox(self.ptripframe, width=4, from_=1, to=self.tripid, font=(None, 18),
                                       command=self.previousTripDisplay, buttonbackground=self.colour,
                                       fg=self.textColour, highlightbackground=self.colour, bg=self.colour)
         self.ptripselect.delete(0, 'end')
         self.ptripselect.insert(0, 1)
         self.ptripselect.grid(row=0, column=0, sticky='nsw', padx=10, pady=10)
 
-        self.pvtDate = tk.Label(self.ptripframe, text=('Date: ' + "03" + "/" +
-                                                       "04" + "/" + "05"),
+        # date of trip
+        self.pvtDate = tk.Label(self.ptripframe, text='Date: 00-00-0000',
                                 bg=self.colour, font=(None, 13), fg=self.textColour)
         self.pvtDate.grid(row=1, column=0, sticky='nsw')
 
-        self.pvtTime = tk.Label(self.ptripframe, text=('Time: ' + '11' + ":" + '11'),
+        # trip time
+        self.pvtTime = tk.Label(self.ptripframe, text='Time: 00',
                                 bg=self.colour, font=(None, 13), fg=self.textColour)
         self.pvtTime.grid(row=2, column=0, sticky='nsw')
 
+        # button to upload trip to web app
         self.apibutton = tk.Button(self.ptripframe, text='Upload', highlightbackground=self.colour, bg=self.colour,
                                    activebackground=self.colour, borderwidth=2, fg=self.textColour,
                                    command=lambda: self.uploadframe.tkraise())
@@ -393,24 +429,29 @@ class App(tk.Tk):
         self.ptripframe2.rowconfigure(3, weight=1)
         self.ptripframe2.columnconfigure(0, weight=1)
 
-        self.pvtMaxSpeed = tk.Label(self.ptripframe2, text=('Max Speed: ' + '10'), bg=self.colour, fg=self.textColour,
+        # max speed of trip
+        self.pvtMaxSpeed = tk.Label(self.ptripframe2, text='Max Speed: 0', bg=self.colour, fg=self.textColour,
                                     font=(None, 13))
         self.pvtMaxSpeed.grid(row=0, column=0, sticky='w')
 
-        self.pvtDistance = tk.Label(self.ptripframe2, text=('Distance: ' + '10'), bg=self.colour, fg=self.textColour,
+        # total distance of trip
+        self.pvtDistance = tk.Label(self.ptripframe2, text='Distance: 0', bg=self.colour, fg=self.textColour,
                                     font=(None, 13))
         self.pvtDistance.grid(row=1, column=0, sticky='w')
 
-        self.pvtDUp = tk.Label(self.ptripframe2, text=('Uphill Distance: ' + '10'), bg=self.colour, fg=self.textColour,
+        # uphill distance of trip
+        self.pvtDUp = tk.Label(self.ptripframe2, text='Uphill Distance: 0', bg=self.colour, fg=self.textColour,
                                font=(None, 13))
         self.pvtDUp.grid(row=2, column=0, sticky='w')
 
-        self.pvtDDown = tk.Label(self.ptripframe2, text=('Downhill Distance: ' + '10'), bg=self.colour,
+        # downhill distance of trip
+        self.pvtDDown = tk.Label(self.ptripframe2, text='Downhill Distance: 0', bg=self.colour,
                                  fg=self.textColour, font=(None, 13))
         self.pvtDDown.grid(row=3, column=0, sticky='w')
 
         self.previousTripDisplay()
 
+        # trip upload screen configure
         self.uploadframe.columnconfigure(0, weight=1)
         self.uploadframe.columnconfigure(1, weight=1)
         self.uploadframe.columnconfigure(2, weight=1)
@@ -424,22 +465,27 @@ class App(tk.Tk):
         self.userlabel = tk.Label(self.uploadframe, text="Username: ", bg=self.colour, fg=self.textColour)
         self.userlabel.grid(row=0, column=0)
 
+        # username entry box
         self.usernameentry = tk.Entry(self.uploadframe, bd=5, bg=self.colour,)
         self.usernameentry.grid(row=0, column=1)
 
         self.passwordlabel = tk.Label(self.uploadframe, text="Password: ", bg=self.colour, fg=self.textColour)
         self.passwordlabel.grid(row=1, column=0)
 
+        # password entry box
         self.passwordentry = tk.Entry(self.uploadframe, bd=5, bg=self.colour,)
         self.passwordentry.grid(row=1, column=1)
 
+        # button to upload
         self.buttonSend = tk.Button(self.uploadframe, height=1, width=12, text="Upload Trip", fg=self.textColour,
                                     highlightbackground=self.colour, bg=self.colour, activebackground=self.colour,
-                                    borderwidth=2, command=lambda: api.upload(username=self.usernameentry.get(),
-                                                                              password=self.passwordentry.get(),
-                                                                              tripnum=self.ptripselect.get()))
+                                    borderwidth=2,
+                                    command=lambda: byke_interface.upload(username=self.usernameentry.get(),
+                                                                          password=self.passwordentry.get(),
+                                                                          tripnum=self.ptripselect.get()))
         self.buttonSend.grid(row=1, column=2)
 
+        # button to open on screen keyboard
         self.buttonKeyboard = tk.Button(self.uploadframe, height=1, width=12, text="Keyboard", fg=self.textColour,
                                         highlightbackground=self.colour, bg=self.colour, activebackground=self.colour,
                                         borderwidth=2, command=lambda: call("matchbox-keyboard", shell=True))
@@ -447,10 +493,12 @@ class App(tk.Tk):
 
         self.tail_light_flash()
 
-        self.after(1000, self.rungps)
-        self.after(500, self.runbutton)
+        # tkinter functions to call functions
+        self.after(1000, self.rungps)    # call rungps function every 1000ms
+        self.after(500, self.buttons_query)  # call runbutton function every 500ms
 
-        self.temperature_thread = temperature.temperatureThread()  # start temperature sensor thread
+        # start temperature sensor thread
+        self.temperature_thread = byke_interface.temperature.TemperatureThread()  # start temperature sensor thread
         self.temperature_thread.start()
 
     # -----------------------------------------------------
@@ -468,17 +516,19 @@ class App(tk.Tk):
         global starttimehr
         global starttimemin
 
-        gpsValues, gpsdistance = gps.gps(record=recordRunning, tripid=self.tripid, xFlat=self.xRotationSet,
-                                         yFlat=self.yRotationSet)
+        gpsValues, gpsdistance = byke_interface.gps.gps(record=recordRunning, tripid=self.tripid,
+                                                        xFlat=self.settings['X_Rotation'],
+                                                        yFlat=self.settings['Y_Rotation'])
 
-        speed, time, savetimemin, savetimehr = gps.gpsdisplay(gpsValues=gpsValues, timezone=int(self.timespinner.get()),
-                                                              dst=int(self.timedstselect.get()),
-                                                              units=int(self.unitSetting))
+        speed, time, savetimemin, savetimehr = byke_interface.gps.gpsdisplay(gpsValues=gpsValues,
+                                                                             timezone=int(self.timespinner.get()),
+                                                                             dst=int(self.timedstselect.get()),
+                                                                             units=int(self.settings['Units']))
 
-        self.speeddisplay.config(text=str(speed))
-        self.timedisplay.config(text=str(time))
+        self.speeddisplay.config(text=str(speed))   # display current speed from gps
+        self.timedisplay.config(text=str(time))     # display current time from gps
 
-        if recordRunning is True:  # calculate trip time
+        if recordRunning is True:  # calculate elapsed trip time to display
             if savetimemin < starttimemin:
                 savetimemin = savetimemin + 60
             if savetimehr < starttimehr:
@@ -490,27 +540,25 @@ class App(tk.Tk):
             self.pvtTime.config(text=str('Time: {} MINS'.format(diftime)))  # display current elapsed time
             self.pvtDate.config(text=str(gpsValues['time'][:10]))
 
-            maxSpeed = self.pvtMaxSpeed.cget('text')
-            maxSpeed = maxSpeed[11:(len(maxSpeed)-3)]
+            max_speed = self.pvtMaxSpeed.cget('text')    # get max speed text currently being displayed
+            max_speed = max_speed[11:(len(max_speed)-3)]   # get speed numbers from text
 
-            if float(maxSpeed) < speed:
+            if float(max_speed) < speed:                 # compare max speed to current speed
                 self.pvtMaxSpeed.config(text='Max Speed: {} KMH'.format(speed))
 
-            self.distance += gpsdistance
+            self.total_distance += gpsdistance    # add distance travelled from gps to total distance
 
-            self.pvtDistance.config(text='Distance: {} KM'.format(round(self.distance, 1)))
+            self.pvtDistance.config(text='Distance: {} KM'.format(round(self.total_distance, 1)))
 
             if gpsValues['climb'] is 1:
-                dup = self.pvtDUp.cget('text')
-                dup = round(float(dup[16:(len(dup)-2)]) + self.distance, 1)
-                self.pvtDUp.config(text='Uphill Distance: {} KM'.format(dup))
+                self.uphill_distance += gpsdistance
+                self.pvtDUp.config(text='Uphill Distance: {} KM'.format(round(self.uphill_distance, 1)))
             elif gpsValues['climb'] is -1:
-                ddown = self.pvtDDown.cget('text')
-                ddown = round(float(ddown[19:(len(ddown)-2)]) + self.distance, 1)
-                self.pvtDUp.config(text='Downhill Distance: {} KM'.format(ddown))
+                self.downhill_distance += gpsdistance
+                self.pvtDUp.config(text='Downhill Distance: {} KM'.format(round(self.downhill_distance,1)))
 
-        self.tempUpdate()
-        self.after(1000, self.rungps)
+        self.temperature_update()               # call temperature update function
+        self.after(1000, self.rungps)   # tkinter function to call function every 1000ms
 
     # -----------------------------------------------------
     # Function: runbutton
@@ -520,28 +568,28 @@ class App(tk.Tk):
     # Inputs:
     # Outputs:
     # -----------------------------------------------------
-    def runbutton(self):
+    def buttons_query(self):
 
-        buttonStatus = buttons.buttonspress(maxPower=int(self.powerSpinner.get()))
+        button_status = byke_interface.buttons.buttonspressed(max_power=int(self.powerSpinner.get()))  # get max pwm setting from interface
 
-        if buttonStatus['leftTurn'] is True:
-            self.leftTurnSignal.config(fg='#00FF00')
-        else:
-            self.leftTurnSignal.config(fg=self.colour)
+        # if button_status['leftTurn'] is True:            # turn on left turn signal indicator on interface
+        #     self.leftTurnSignal.config(fg='#00FF00')
+        # else:
+        #     self.leftTurnSignal.config(fg=self.colour)
+        #
+        # if button_status['rightTurn'] is True:           # turn on right turn signal indicator on interface
+        #     self.rightTurnSignal.config(fg='#00FF00')
+        # else:
+        #     self.rightTurnSignal.config(fg=self.colour)
+        #
+        # if button_status['headLight'] is True:           # turn on headlight on indicator
+        #     self.headLight.config(text='\u2600', fg='blue')
+        #     headlight_led.on()
+        # else:
+        #     self.headLight.config(text='\u263C', fg=self.textColour)
+        #     headlight_led.off()
 
-        if buttonStatus['rightTurn'] is True:
-            self.rightTurnSignal.config(fg='#00FF00')
-        else:
-            self.rightTurnSignal.config(fg=self.colour)
-
-        if buttonStatus['headLight'] is True:
-            self.headLight.config(text='\u2600', fg='blue')
-            headlight_bright.on()
-        else:
-            self.headLight.config(text='\u263C', fg=self.textColour)
-            headlight_bright.off()
-
-        self.after(500, self.runbutton)
+        self.after(500, self.buttons_query)    # tkinter function to call function every 500ms
 
     # -----------------------------------------------------
     # Function: quit_app
@@ -553,30 +601,33 @@ class App(tk.Tk):
     # -----------------------------------------------------
     def quit_app(self):
 
-        temperature.temperatureThread.stop_thread(self)
+        self.temperature_thread.stop_thread()     # stop temperature thread
 
-        self.data.clear()
-        self.data.append(str(self.themeselect.get()))  # save theme selected
-        self.data.append(str(self.powerSpinner.get()))  # save max power value
-        self.data.append(str(int(self.timespinner.get()) + 23))  # save time zone
-        self.data.append(str(self.timedstselect.get()))  # save daylight savings on/off
-        self.data.append(str(self.unitSetting))
-        self.data.append(str(self.xRotationSet))
-        self.data.append(str(self.yRotationSet))
-        self.data.append(str(self.flashtaillight.get()))
+        # self.data.clear()
+        self.settings['Theme'] = (str(self.themeselect.get()))                 # save theme selected
+        self.settings['Max_PWM'] = (str(self.powerSpinner.get()))              # save max power value
+        self.settings['Time_Zone'] = (str(self.timespinner.get()))             # save time zone
+        self.settings['DST'] = (str(self.timedstselect.get()))                 # save daylight savings on/off
+        # self.settings['Units'] = (str(self.unitSetting))                       # save unit setting
+        # self.settings['X_Rotation'] = (str(self.xRotationSet))                 # save motion calibration for x direction
+        # self.settings['Y_Rotation'] = (str(self.yRotationSet))                 # save motion calibration for y direction
+        self.settings['Flash_Taillight'] = (str(self.flashtaillight.get()))    # save flashing taillight option setting
 
         try:
-            with open('information/settings.txt', 'w') as file:  # write data out to save file
-                csvWriter = csv.writer(file)
-                csvWriter.writerow(self.data)
-                logging.info('Successful Save')
+            with open('information/settings.txt', 'w') as file:                     # open settings file
+                csvwriter = csv.DictWriter(file, fieldnames=self.settings.keys())   # setup csv writer
+                csvwriter.writeheader()
+                csvwriter.writerow(self.settings)                                   # write settings to file
+
+            logging.info('Successful Save')                                         # log if successful save
+
         except:
-            logging.error('Save Error')
+            logging.error('Save Error')                                             # log if error saving
 
         logging.info('---------------------------END OF PROGRAM------------------------')
 
         # call("sudo shutdown -h now", shell=True) # shutdown raspi
-        os._exit(0)
+        os._exit(0)     # exit application
 
     # -----------------------------------------------------
     # Function: tempUpdate
@@ -586,16 +637,16 @@ class App(tk.Tk):
     # Inputs:
     # Outputs:
     # -----------------------------------------------------
-    def tempUpdate(self):
+    def temperature_update(self):
         try:
-            currenttemperature = temperature_queue
+            current_temperature = temperature_queue
 
-            if self.unitSetting is '1':
-                currenttemperature = str(round((currenttemperature * 1.8 + 32), 1)) + '\u2109'  # display temperature in F
+            if self.settings['Units'] is '1':
+                current_temperature = str(round((current_temperature * 1.8 + 32), 1)) + '\u2109'  # display temperature in F
             else:
-                currenttemperature = str(round(currenttemperature, 1)) + '\u2103'  # display temperature in C
+                current_temperature = str(round(current_temperature, 1)) + '\u2103'  # display temperature in C
 
-            self.temperaturedisplay.config(text=str(currenttemperature))
+            self.temperaturedisplay.config(text=str(current_temperature))
 
         except:
             pass
@@ -604,36 +655,34 @@ class App(tk.Tk):
     # Function: motion_calibrate
     # Author: Tanner L
     # Date: 09/20/19
-    # Desc: Records starting x and y rotation
+    # Desc: Records flat x and y for uphill/downhill measuring
     # Inputs:
     # Outputs:
     # -----------------------------------------------------
     def motion_calibrate(self):
-        self.xRotationSet,  self.yRotationSet = motion.motion()
+        self.settings['X_Rotation'],  self.settings['Y_Rotation'] = byke_interface.motion.motion()
         self.motioncal.config(text='Calibrated')
 
     # -----------------------------------------------------
     # Function: tail_light_flash
     # Author: Tanner L
     # Date: 09/20/19
-    # Desc: Sets bit for flashing the tail light
+    # Desc: Sets bit for flashing the taillight
     # Inputs:
     # Outputs:
     # -----------------------------------------------------
     def tail_light_flash(self):
         if self.flashtaillight.get():
-            i2cBus.write_byte_data(taillightPicAddress, 1, True)
-            headlight_dim.blink(on_time=0.2, off_time=0.2, n=None, background=True)
-            self.flashTaillightSetting = '1'
+            # i2cBus.write_byte_data(taillightPicAddress, 1, True)
+            self.settings['Flash_Taillight'] = '1'
         else:
-            i2cBus.write_byte_data(taillightPicAddress, 1, False)
-            headlight_dim.on()
-            self.flashTaillightSetting = '0'
+            # i2cBus.write_byte_data(taillightPicAddress, 1, False)
+            self.settings['Flash_Taillight'] = '0'
 
     # -----------------------------------------------------
     # Function: metric_units
     # Author: Tanner L
-    # Date: /18
+    # Date: 07/10/19
     # Desc: Sets units displayed to metric
     # Inputs:
     # Outputs:
@@ -642,9 +691,9 @@ class App(tk.Tk):
         try:
             self.unitdisplay.config(text='KMH')
             temp = str(self.temperaturedisplay.cget('text'))
-            temp = float(temp[0:len(temp)-1])  # error when less than 3 digits, try taking value from queue
+            temp = float(temp[0:len(temp)-1])
             self.temperaturedisplay.config(text=(str(round(((temp - 32) * 0.55556), 1)) + '\u2103'))
-            self.unitSetting = '0'
+            self.settings['Units'] = '0'
             self.previousTripDisplay()
         except:
             print('error')
@@ -652,7 +701,7 @@ class App(tk.Tk):
     # -----------------------------------------------------
     # Function: imperial_units
     # Author: Tanner L
-    # Date: /18
+    # Date: 07/10/19
     # Desc: Sets units displayed to imperial
     # Inputs:
     # Outputs:
@@ -663,7 +712,7 @@ class App(tk.Tk):
         temp = str(self.temperaturedisplay.cget('text'))
         temp = float(temp[0:len(temp)-1])
         self.temperaturedisplay.config(text=(str(round((temp * 1.8 + 32), 1)) + '\u2109'))
-        self.unitSetting = '1'
+        self.settings['Units'] = '1'
         self.previousTripDisplay()
         #except:
            # print('error')
@@ -671,7 +720,7 @@ class App(tk.Tk):
     # -----------------------------------------------------
     # Function: record
     # Author: Tanner L
-    # Date: /18
+    # Date: 07/10/19
     # Desc: Records trip data
     # Inputs:
     # Outputs:
@@ -762,7 +811,7 @@ class App(tk.Tk):
     # -----------------------------------------------------
     # Function: previousTripDisplay
     # Author: Tanner L
-    # Date: /18
+    # Date: 07/10/19
     # Desc: Displays previous recorded trip data
     # Inputs:
     # Outputs:
@@ -800,10 +849,10 @@ class App(tk.Tk):
                 pass
 
     # -----------------------------------------------------
-    # Function: motorCurrent
+    # Function: batterylife
     # Author: Tanner L
-    # Date: 10/07/2019
-    # Desc: Motor current display
+    # Date: 07/10/2019
+    # Desc: battery life display, in 25% increments
     # Inputs:
     # Outputs:
     # -----------------------------------------------------
@@ -832,7 +881,7 @@ class App(tk.Tk):
     # -----------------------------------------------------
     # Function: themechange
     # Author: Tanner L
-    # Date: /18
+    # Date: 07/10/19
     # Desc: Changes theme, between light and dark
     # Inputs:
     # Outputs:
@@ -859,7 +908,8 @@ class App(tk.Tk):
         self.tripframe.config(bg=self.colour)
         self.homeleft.config(bg=self.colour)
 
-        self.shutdownbutton.config(highlightbackground=self.colour, bg=self.colour, activebackground=self.colour, fg=self.textColour)
+        self.shutdownbutton.config(highlightbackground=self.colour, bg=self.colour,
+                                   activebackground=self.colour, fg=self.textColour)
         self.currentdisplay.config(bg=self.colour, fg=self.textColour)
         self.batteryimage.config(bg=self.colour, fg=self.textColour)
         self.timedisplay.config(bg=self.colour, fg=self.textColour)
@@ -895,7 +945,8 @@ class App(tk.Tk):
                                    selectcolor=self.colour, fg=self.textColour)
 
         self.ptripframe.config(bg=self.colour, fg=self.textColour)
-        self.ptripselect.config(bg=self.colour, highlightbackground=self.colour, buttonbackground=self.colour, fg=self.textColour)
+        self.ptripselect.config(bg=self.colour, highlightbackground=self.colour,
+                                buttonbackground=self.colour, fg=self.textColour)
         self.pvtDate.config(bg=self.colour, fg=self.textColour)
         self.pvtTime.config(bg=self.colour, fg=self.textColour)
         self.ptripframe2.config(bg=self.colour)
@@ -903,17 +954,16 @@ class App(tk.Tk):
         self.pvtDistance.config(bg=self.colour, fg=self.textColour)
         self.pvtDUp.config(bg=self.colour, fg=self.textColour)
         self.pvtDDown.config(bg=self.colour, fg=self.textColour)
-        self.apibutton.config(bg=self.colour, highlightbackground=self.colour, activebackground=self.colour, fg=self.textColour)
+        self.apibutton.config(bg=self.colour, highlightbackground=self.colour,
+                              activebackground=self.colour, fg=self.textColour)
 
         self.uploadframe.config(bg=self.colour)
         self.userlabel.config(bg=self.colour, fg=self.textColour)
         self.usernameentry.config(bg=self.colour, fg=self.textColour)
         self.passwordlabel.config(bg=self.colour, fg=self.textColour)
         self.passwordentry.config(bg=self.colour, fg=self.textColour)
-        self.triplabel.config(bg=self.colour, fg=self.textColour)
-        self.buttonCommit.config(bg=self.colour, highlightbackground=self.colour, activebackground=self.colour, fg=self.textColour)
-        self.buttonSend.config(bg=self.colour, highlightbackground=self.colour, activebackground=self.colour, fg=self.textColour)
-        self.tripentry.config(bg=self.colour, fg=self.textColour)
+        self.buttonSend.config(bg=self.colour, highlightbackground=self.colour,
+                               activebackground=self.colour, fg=self.textColour)
 
 
 App().mainloop()  # end of interface class, tkinter interface loop

@@ -1,1 +1,2 @@
-1,100,23,1,0,0,0,0
+Theme,Max_PWM,Time_Zone,DST,Units,X_Rotation,Y_Rotation,Flashing_Taillight,Flash_Taillight
+1,100,0,1,0,0,0,0,0
