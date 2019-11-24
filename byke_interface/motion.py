@@ -6,10 +6,10 @@
 # -----------------------------------------------------
 import logging
 import math
-# import smbus
+import smbus
 
 
-# i2cBus = smbus.SMBus(1)     # Setup for i2c communication via smbus
+i2cBus = smbus.SMBus(1)     # Setup for i2c communication via smbus
 motionAddress = 0x68  # address for mpu5060 motion sensor
 motionPowerMgmt1 = 0x6b  # memory location of power register
 motionPowerMgmt2 = 0x6c  # memory location of power register

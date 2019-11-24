@@ -5,22 +5,22 @@
 # Desc: Handles button presses
 # -----------------------------------------------------
 import logging
-# # import smbus    # i2c smbus for pic communication
-# # from gpiozero import Button, LED, TonalBuzzer     # import gpio function for raspberry pi
-# # from gpiozero.tones import Tone  # import tones for horn function
-#
-# # i2c addresses
-# i2cBus = smbus.SMBus(1)     # Setup for i2c communication via smbus
-# tailEndPicAddress = 0x55    # i2c address of tail end pic
-# batteryPicAddress = 0x45    # i2c address of battery location pic
-#
-# # gpio pins
-# leftButton = Button(6)        # left turn button
-# rightButton = Button(5)       # right turn button
-# headLightButton = Button(19)  # headlight button
-# hornButton = Button(13)       # horn button
-# brakeButton = Button(20)      # brake lever
-# horn = TonalBuzzer(12)        # horn
+import smbus    # i2c smbus for pic communication
+from gpiozero import Button, LED, TonalBuzzer     # import gpio function for raspberry pi
+from gpiozero.tones import Tone  # import tones for horn function
+
+# i2c addresses
+i2cBus = smbus.SMBus(1)     # Setup for i2c communication via smbus
+tailEndPicAddress = 0x55    # i2c address of tail end pic
+batteryPicAddress = 0x45    # i2c address of battery location pic
+
+# gpio pins
+leftButton = Button(6)        # left turn button
+rightButton = Button(5)       # right turn button
+headLightButton = Button(19)  # headlight button
+hornButton = Button(13)       # horn button
+brakeButton = Button(20)      # brake lever
+horn = TonalBuzzer(12)        # horn
 
 
 # -----------------------------------------------------
@@ -65,7 +65,7 @@ def buttonspressed(max_power):  # function for handling button presses
             i2cBus.write_byte_data(tailEndPicAddress, 2, False)
             i2cBus.write_byte_data(tailEndPicAddress, 3, False)
             button_status['headLight'] = False
-
+    except:
         if hornButton.is_pressed:
             horn.play(Tone(220.0))
             button_status['horn'] = True
@@ -75,7 +75,7 @@ def buttonspressed(max_power):  # function for handling button presses
 
     # i2cBus.write_byte_data(batteryPicAddress, 4, int(max_power))  # send max power values to pic
 
-    except:
-        logging.error('Buttons Error')
+    # except:
+    #     logging.error('Buttons Error')
 
     return button_status

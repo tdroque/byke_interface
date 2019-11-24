@@ -7,8 +7,8 @@
 # Outputs:
 # -----------------------------------------------------
 import logging
-import byke_interface.motion
-import byke_interface.interface
+# import motion
+import interface
 
 # raspberry pi libraries
 # import gpsd  # Gps library import
@@ -39,7 +39,8 @@ def gps(record, tripid, xFlat, yFlat):  # communicate with gps module
             gpsvalues['lng'] = gpsData.lon  # longitude
             gpsvalues['alt'] = gpsData.alt  # altitude
 
-            xrotate, yrotate = byke_interface.motion.motion()  # motion function to for current angle
+        try:
+            xrotate, yrotate = motion.motion()  # motion function to for current angle
 
             gpsvalues['climb'] = xrotate
 
@@ -50,6 +51,9 @@ def gps(record, tripid, xFlat, yFlat):  # communicate with gps module
             # else:
             #     gpsValues['climb'] = 0
 
+        except:
+            logging.error('Motion Read Error')
+
             if gpsvalues['speed'] > 0.2:  # filter speed
                 gpsvalues['speed'] = round(gpsvalues['speed'] * 3.6, 1)  # convert speed from m/s to km/h and round to 1 decimal
                 distance = gpsvalues['speed'] / 3600  # calculate distance travelled in last second
@@ -57,15 +61,14 @@ def gps(record, tripid, xFlat, yFlat):  # communicate with gps module
                 gpsvalues['speed'] = 0.0
 
             if record is True:  # if recording trip save values
-                byke_interface.interface.entryid += 1  # increment entry_id, entry_id must be unique for entry into database
-                byke_interface.interface.gpslist.append((byke_interface.interface.entryid, gpsvalues['time'],
+                interface.entryid += 1  # increment entry_id, entry_id must be unique for entry into database
+                interface.gpslist.append((interface.entryid, gpsvalues['time'],
                                                          float(gpsvalues['speed']), float(gpsvalues['lat']),
                                                          float(gpsvalues['lng']), gpsvalues['alt'],
                                                          gpsvalues['climb'], tripid))
 
-        # except:
-        #   logging.error('GPS Read Error')
     except:
+        logging.error('GPS Module Error')
         pass
 
     return gpsvalues, distance

@@ -9,9 +9,9 @@
 import threading as th
 import logging
 import time
-import byke_interface.interface
-# import adafruit_dht  # import library for temperature sensor
-# import board
+import interface
+import adafruit_dht  # import library for temperature sensor
+import board
 
 
 # -----------------------------------------------------
@@ -43,17 +43,17 @@ class TemperatureThread(th.Thread):
     def run(self):
 
         logging.info('Temperature Sensor Thread Start')
-        #sensor = adafruit_dht.DHT11(board.D16)  # setup dht11 to be read
+        sensor = adafruit_dht.DHT11(board.D16)  # setup dht11 to be read
 
         while self.go:
 
             try:
-                byke_interface.interface.temperature_queue = sensor.temperature  # read in temperature
+                interface.temperature_queue = sensor.temperature  # read in temperature
 
             except:
-                logging.error('Temperature Sensor Error')
-
-            time.sleep(10)  # send new temperature every ten seconds
+                #logging.error('Temperature Sensor Error')
+                print('Temp Read Error')
+            time.sleep(1)  # send new temperature every ten seconds
 
     # -----------------------------------------------------
     # Function: stop_thread

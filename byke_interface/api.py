@@ -10,8 +10,7 @@ import sqlite3
 import requests
 from requests.auth import HTTPBasicAuth
 import logging
-import random
-from subprocess import call
+import interface
 
 
 # -----------------------------------------------------
@@ -26,7 +25,6 @@ def upload(username, password, tripnum):
 
     baseurl = 'https://byke.ca/'  # base url for web app api urls
 
-    entry_offset = random.randint(10000, 100001)  # offset used to attempt to avoid duplicate entry_id
     tripnum = int(tripnum)  # make sure tripnum is an integer
 
     tok = requests.get(baseurl + 'api/login', auth=HTTPBasicAuth(username, password))  # user authentication
@@ -54,10 +52,13 @@ def upload(username, password, tripnum):
                 "climb": row[5],
                 "user": username,
                 "trip_id": row[7],
-                "entry_id": int(row[0]) + entry_offset}
+                "entry_id": int(row[0])}
         # post request to set data to web app
         response = requests.post(baseurl + 'api/trip/add/gps', headers={'login_token': token['token']}, json=data)
-        print(response.status_code)
+
+        if response.status_code is not '200':
+            logging.error('Trip GPS Upload Error Code {}'.format(response.status_code))
+            break
 
     stats = {                 # putting data into format for sending to web app
         "time": tripstats[1],
@@ -73,4 +74,11 @@ def upload(username, password, tripnum):
     response = requests.post(baseurl + 'api/trip/add/stats', headers={'login_token': token['token']}, json=stats)
     print(response.status_code)
     print("Done")
+    if response.status_code is 200:
+        interface.apiResponse = 'Successful Upload'
+    elif response.status_code is 209:
+        interface.apiResponse = 'Already Uploaded'
+    else:
+        interface.apiResponse = 'Error ' + str(response.status_code)
+        logging.error('Trip Stats Upload Error Code {}'.format(response.status_code))
 
