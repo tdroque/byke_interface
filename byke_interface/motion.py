@@ -79,4 +79,4 @@ def motion():  # function for communicating with motion sensor, mpu5060
         return xy_rotate
 
     except:
-        logging.critical('Motion Read Error')
+        logging.critical('Motion Sensor Read Error')

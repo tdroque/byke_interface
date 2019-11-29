@@ -52,9 +52,11 @@ def buttonspressed(max_power):  # function for handling button presses
 
         if brakeButton.is_pressed:  # brake signal button
             i2cBus.write_byte_data(tailEndPicAddress, 5, True)
+            i2cBus.write_byte_data(batteryPicAddress, 2, False)
             button_status['brake'] = True
         else:
             i2cBus.write_byte_data(tailEndPicAddress, 5, False)
+            i2cBus.write_byte_data(batteryPicAddress, 2, True)
             button_status['brake'] = False
 
         if headLightButton.is_pressed:  # headlight button
@@ -65,7 +67,7 @@ def buttonspressed(max_power):  # function for handling button presses
             i2cBus.write_byte_data(tailEndPicAddress, 2, False)
             i2cBus.write_byte_data(tailEndPicAddress, 3, False)
             button_status['headLight'] = False
-    except:
+
         if hornButton.is_pressed:
             horn.play(Tone(220.0))
             button_status['horn'] = True
@@ -73,9 +75,9 @@ def buttonspressed(max_power):  # function for handling button presses
             horn.stop()
             button_status['horn'] = False
 
-    # i2cBus.write_byte_data(batteryPicAddress, 4, int(max_power))  # send max power values to pic
+        i2cBus.write_byte_data(batteryPicAddress, 4, int(max_power))  # send max power values to pic
 
-    # except:
-    #     logging.error('Buttons Error')
+    except:
+        logging.error('Buttons Error')
 
     return button_status

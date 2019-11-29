@@ -7,11 +7,10 @@
 # Outputs:
 # -----------------------------------------------------
 import logging
-# import motion
+import motion
 import interface
 
-# raspberry pi libraries
-# import gpsd  # Gps library import
+import gpsd  # Gps library import
 
 
 # -----------------------------------------------------
@@ -44,18 +43,17 @@ def gps(record, tripid, xFlat, yFlat):  # communicate with gps module
 
             gpsvalues['climb'] = xrotate
 
-            # if xRotate > xFlat:  # to determine if travelling uphill/downhill/flat
-            #     gpsValues['climb'] = 1
-            # elif xRotate < xFlat:
-            #     gpsValues['climb'] = -1
-            # else:
-            #     gpsValues['climb'] = 0
-
+            if xrotate > xFlat:  # to determine if travelling uphill/downhill/flat
+                gpsvalues['climb'] = 1
+            elif xrotate < xFlat:
+                gpsvalues['climb'] = -1
+            else:
+                gpsvalues['climb'] = 0
         except:
             logging.error('Motion Read Error')
 
-            if gpsvalues['speed'] > 0.2:  # filter speed
-                gpsvalues['speed'] = round(gpsvalues['speed'] * 3.6, 1)  # convert speed from m/s to km/h and round to 1 decimal
+            if gpsvalues['speed'] > 0.25:  # filter speed
+                gpsvalues['speed'] = round(gpsvalues['speed'] * 3.6, 1)  # convert speed m/s to km/h, round 1 decimal
                 distance = gpsvalues['speed'] / 3600  # calculate distance travelled in last second
             else:
                 gpsvalues['speed'] = 0.0
@@ -63,9 +61,9 @@ def gps(record, tripid, xFlat, yFlat):  # communicate with gps module
             if record is True:  # if recording trip save values
                 interface.entryid += 1  # increment entry_id, entry_id must be unique for entry into database
                 interface.gpslist.append((interface.entryid, gpsvalues['time'],
-                                                         float(gpsvalues['speed']), float(gpsvalues['lat']),
-                                                         float(gpsvalues['lng']), gpsvalues['alt'],
-                                                         gpsvalues['climb'], tripid))
+                                          float(gpsvalues['speed']), float(gpsvalues['lat']),
+                                          float(gpsvalues['lng']), gpsvalues['alt'],
+                                          gpsvalues['climb'], tripid))
 
     except:
         logging.error('GPS Module Error')

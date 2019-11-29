@@ -12,37 +12,37 @@ import os                       # used for shutdown application
 from PIL import ImageTk, Image  # used for battery percent image
 import logging                  # used for app logging
 import sqlite3                  # used to interact with sqlite database
-from subprocess import Popen     # used to call on screen keyboard and shutdown raspberry pi
-# import smbus                    # used for i2c communication via smbus protocol
-# from gpiozero import LED        # used to control the headlight circuits
-#
+from subprocess import Popen    # used to call on screen keyboard and shutdown raspberry pi
+import smbus                    # used for i2c communication via smbus protocol
+from gpiozero import LED        # used to control the headlight circuits
+
 import api                      # byke api module, api function
 import gps                      # byke gps module, gps functions
-# import buttons                  # byke buttons module, button functions
-# import temperature              # byke temperature module, temperature sensor thread
-# import motion                   # byke motion module, motion sensor functions
+import buttons                  # byke buttons module, button functions
+import temperature              # byke temperature module, temperature sensor thread
+import motion                   # byke motion module, motion sensor functions
 
 logging.basicConfig(filename='information/error.log', level=logging.DEBUG)  # logging file
 
-# i2cBus = smbus.SMBus(1)     # Setup for i2c communication via smbus
+i2cBus = smbus.SMBus(1)     # Setup for i2c communication via smbus
 taillightPicAddress = 0x55  # i2c address of tail end pic
 motorPicAddress = 0x45      # i2c address of battery location pic
 
-# headlight_led = LED(21)   # headlight
+headlight_led = LED(21)     # headlight
 
-global recordRunning    # variable for recording trip
+global recordRunning        # variable for recording trip
 recordRunning = False
 
-global totaldistance    # total trip distance
+global totaldistance        # total trip distance
 totaldistance = 0
 
-global gpsdistance      # gps distance calculated
+global gpsdistance          # gps distance calculated
 gpsdistance = 0
 
-global savetimehr       # trip time hour
+global savetimehr           # trip time hour
 savetimehr = 0
 
-global savetimemin      # trip time minute
+global savetimemin          # trip time minute
 savetimemin = 0
 
 global starttimemin
@@ -99,7 +99,7 @@ try:
 except:
     logging.error('byke_data table error')  # log table creation error
 
-conn.close()    # disconnect from database
+conn.close()                                # disconnect from database
 
 
 # -----------------------------------------------------
@@ -110,7 +110,7 @@ conn.close()    # disconnect from database
 # Inputs:
 # Outputs:
 # -----------------------------------------------------
-class App(tk.Tk):   # creat class and inherit tkinter functions
+class App(tk.Tk):                   # creat class and inherit tkinter functions
     def __init__(self):
         tk.Tk.__init__(self)
 
@@ -134,7 +134,7 @@ class App(tk.Tk):   # creat class and inherit tkinter functions
         try:
             entryid = max_gps_entry[0]      # set entryid to max entryid from db
         except:
-            entryid = 0                 # entryid is 0 if no trips in db
+            entryid = 0                     # entryid is 0 if no trips in db
 
         try:
             if max_gps_entry[1] > max_trip_id[0]:
@@ -165,29 +165,31 @@ class App(tk.Tk):   # creat class and inherit tkinter functions
 
                 entryid += 1
         except:
-            pass
+            logging.error('Trip Number, Entry Number Error')
 
         try:
             self.tripid = max_trip_id[0]
         except:
-            self.tripid = 0             # if no trips in db, start with trip set to 0
+            self.tripid = 0                                      # if no trips in db, start with trip set to 0
 
         # Setting Load from settings.txt file --------------------------------------------------------------------------
         try:
             with open('information/settings.txt', 'r') as file:  # open settings file file
-                csvreader = csv.DictReader(file)                     # setup csv reader
-                for entry in csvreader:            # read values from file
+                csvreader = csv.DictReader(file)                 # setup csv reader
+                for entry in csvreader:                          # read values from file
                     self.settings = dict(entry)
 
         except:
             logging.critical('Load Save File Error')
-
-        # i2cBus.write_byte_data(motorPicAddress, 4, int(self.settings['Max_PWM']))  # send max pwn setting to battery pic
+        try:
+            i2cBus.write_byte_data(motorPicAddress, 4, int(self.settings['Max_PWM']))  # send max pwm to motor pic
+        except:
+            logging.error('Sending Max Pwm Error')
 
         # Set theme colour from settings file --------------------------------------------------------------------------
         if self.settings['Theme'] is '0':   # theme setting
-            self.colour = "black"      # background colour
-            self.textColour = 'white'  # text colour
+            self.colour = "black"           # background colour
+            self.textColour = 'white'       # text colour
         else:
             self.colour = 'white'
             self.textColour = 'black'
@@ -450,7 +452,7 @@ class App(tk.Tk):   # creat class and inherit tkinter functions
         self.pvtDate.grid(row=1, column=0, sticky='nsw')
 
         # trip time
-        self.pvtTime = tk.Label(self.ptripframe, text='Time: 00',
+        self.pvtTime = tk.Label(self.ptripframe, text='Time: 00 Mins',
                                 bg=self.colour, font=(None, 13), fg=self.textColour)
         self.pvtTime.grid(row=2, column=0, sticky='nsw')
 
@@ -539,11 +541,11 @@ class App(tk.Tk):   # creat class and inherit tkinter functions
 
         # tkinter functions to call functions
         self.after(1000, self.rungps)    # call rungps function every 1000ms
-        # self.after(500, self.buttons_query)  # call runbutton function every 500ms
+        self.after(500, self.buttons_query)  # call runbutton function every 500ms
 
         # start temperature sensor thread
-        # self.temperature_thread = temperature.TemperatureThread()  # start temperature sensor thread
-        # self.temperature_thread.start()
+        self.temperature_thread = temperature.TemperatureThread()  # start temperature sensor thread
+        self.temperature_thread.start()
 
     # -----------------------------------------------------
     # Function: rungps
@@ -561,13 +563,13 @@ class App(tk.Tk):   # creat class and inherit tkinter functions
         global starttimemin
 
         gpsValues, gpsdistance = gps.gps(record=recordRunning, tripid=self.tripid,
-                                                        xFlat=self.settings['X_Rotation'],
-                                                        yFlat=self.settings['Y_Rotation'])
+                                         xFlat=self.settings['X_Rotation'],
+                                         yFlat=self.settings['Y_Rotation'])
 
         speed, time, savetimemin, savetimehr = gps.gpsdisplay(gpsValues=gpsValues,
-                                                                             timezone=int(self.timespinner.get()),
-                                                                             dst=int(self.timedstselect.get()),
-                                                                             units=int(self.settings['Units']))
+                                                              timezone=int(self.timespinner.get()),
+                                                              dst=int(self.timedstselect.get()),
+                                                              units=int(self.settings['Units']))
 
         self.speeddisplay.config(text=str(speed))   # display current speed from gps
         self.timedisplay.config(text=str(time))     # display current time from gps
@@ -599,7 +601,7 @@ class App(tk.Tk):   # creat class and inherit tkinter functions
                 self.pvtDUp.config(text='Uphill Distance: {} KM'.format(round(self.uphill_distance, 1)))
             elif gpsValues['climb'] is -1:
                 self.downhill_distance += gpsdistance
-                self.pvtDUp.config(text='Downhill Distance: {} KM'.format(round(self.downhill_distance,1)))
+                self.pvtDUp.config(text='Downhill Distance: {} KM'.format(round(self.downhill_distance, 1)))
 
         self.responseLabel.config(text=str(apiResponse))
         # self.temperature_update()               # call temperature update function
@@ -616,24 +618,27 @@ class App(tk.Tk):   # creat class and inherit tkinter functions
     # -----------------------------------------------------
     def buttons_query(self):
 
-        button_status = buttons.buttonspressed(max_power=int(self.powerSpinner.get()))  # get max pwm setting from interface
+        try:
+            button_status = buttons.buttonspressed(max_power=int(self.powerSpinner.get()))  # get max pwm setting from interface
 
-        if button_status['leftTurn'] is True:            # turn on left turn signal indicator on interface
-            self.leftTurnSignal.config(fg='#00FF00')
-        else:
-            self.leftTurnSignal.config(fg=self.colour)
+            if button_status['leftTurn'] is True:            # turn on left turn signal indicator on interface
+                self.leftTurnSignal.config(fg='#00FF00')
+            else:
+                self.leftTurnSignal.config(fg=self.colour)
 
-        if button_status['rightTurn'] is True:           # turn on right turn signal indicator on interface
-            self.rightTurnSignal.config(fg='#00FF00')
-        else:
-            self.rightTurnSignal.config(fg=self.colour)
+            if button_status['rightTurn'] is True:           # turn on right turn signal indicator on interface
+                self.rightTurnSignal.config(fg='#00FF00')
+            else:
+                self.rightTurnSignal.config(fg=self.colour)
 
-        if button_status['headLight'] is True:           # turn on headlight on indicator
-            self.headLight.config(text='\u2600', fg='blue')
-            headlight_led.on()
-        else:
-            self.headLight.config(text='\u263C', fg=self.textColour)
-            headlight_led.off()
+            if button_status['headLight'] is True:           # turn on headlight on indicator
+                self.headLight.config(text='\u2600', fg='blue')
+                headlight_led.on()
+            else:
+                self.headLight.config(text='\u263C', fg=self.textColour)
+                headlight_led.off()
+        except:
+            logging.error('Interface Buttons Error')
 
         self.after(500, self.buttons_query)    # tkinter function to call function every 500ms
 
@@ -703,7 +708,7 @@ class App(tk.Tk):   # creat class and inherit tkinter functions
             self.temperaturedisplay.config(text=str(current_temperature))
 
         except:
-            pass
+            logging.error('Temperature Update Error')
 
     # -----------------------------------------------------
     # Function: motion_calibrate
@@ -714,8 +719,11 @@ class App(tk.Tk):   # creat class and inherit tkinter functions
     # Outputs:
     # -----------------------------------------------------
     def motion_calibrate(self):
-        self.settings['X_Rotation'],  self.settings['Y_Rotation'] = motion.motion()
-        self.motioncal.config(text='Calibrated')
+        try:
+            self.settings['X_Rotation'],  self.settings['Y_Rotation'] = motion.motion()
+            self.motioncal.config(text='Calibrated')
+        except:
+            logging.error('Motion Calibration Error')
 
     # -----------------------------------------------------
     # Function: tail_light_flash
@@ -728,13 +736,13 @@ class App(tk.Tk):   # creat class and inherit tkinter functions
     def tail_light_flash(self):
         try:
             if self.flashtaillight.get():
-                # i2cBus.write_byte_data(taillightPicAddress, 1, True)
+                i2cBus.write_byte_data(taillightPicAddress, 1, True)
                 self.settings['Flash_Taillight'] = '1'
             else:
-                # i2cBus.write_byte_data(taillightPicAddress, 1, False)
+                i2cBus.write_byte_data(taillightPicAddress, 1, False)
                 self.settings['Flash_Taillight'] = '0'
         except:
-            pass
+            logging.error('Flashing Taillight Option Error')
 
     # -----------------------------------------------------
     # Function: metric_units
@@ -753,7 +761,7 @@ class App(tk.Tk):   # creat class and inherit tkinter functions
             self.settings['Units'] = '0'
             self.previousTripDisplay()
         except:
-            print('error')
+            logging.error('error')
 
     # -----------------------------------------------------
     # Function: imperial_units
@@ -772,7 +780,7 @@ class App(tk.Tk):   # creat class and inherit tkinter functions
             self.settings['Units'] = '1'
             self.previousTripDisplay()
         except:
-           print('error')
+            logging.error('error')
 
     # -----------------------------------------------------
     # Function: record
@@ -904,7 +912,7 @@ class App(tk.Tk):   # creat class and inherit tkinter functions
                     self.pvtDUp.config(text='Uphill Distance: {} KM'.format(tripData[6]))
                     self.pvtDDown.config(text='Downhill Distance: {} KM'.format(tripData[7]))
             except:
-                pass
+                logging.error('Previous Trip Error')
 
     # -----------------------------------------------------
     # Function: batterylife
@@ -969,12 +977,12 @@ class App(tk.Tk):   # creat class and inherit tkinter functions
             logging.error('Motor Pic Temp Read Error')
 
         try:
-            motorPicTemp = i2cBus.read_byte_data(taillightPicAddress, 6)
-            if motorPicTemp >= 125:
+            tailPicTemp = i2cBus.read_byte_data(taillightPicAddress, 6)
+            if tailPicTemp >= 125:
                 self.rightTurnSignal.config(text='Error', fg='red', font=(None, 10))
                 self.leftTurnSignal.config(text='Error', fg='red', font=(None, 10))
                 logging.error('Tail Pic High Temp Shutdown')
-            elif motorPicTemp == 100:
+            elif tailPicTemp == 100:
                 logging.info('Tail Pic High Temp Warning')
         except:
             logging.error('Tail Pic Temp Read Error')
@@ -1073,3 +1081,4 @@ class App(tk.Tk):   # creat class and inherit tkinter functions
             logging.error('Theme Change Error')
 
 App().mainloop()  # end of interface class, tkinter interface loop
+

@@ -27,10 +27,7 @@ class TemperatureThread(th.Thread):
         th.Thread.__init__(self)
 
         logging.info('--------------------TEMPERATURE START----------------------------')
-
         self.go = True
-        self.humidity = 0
-        self.temperature = 0
 
     # -----------------------------------------------------
     # Function: run
@@ -42,7 +39,6 @@ class TemperatureThread(th.Thread):
     # -----------------------------------------------------
     def run(self):
 
-        logging.info('Temperature Sensor Thread Start')
         sensor = adafruit_dht.DHT11(board.D16)  # setup dht11 to be read
 
         while self.go:
@@ -51,9 +47,13 @@ class TemperatureThread(th.Thread):
                 interface.temperature_queue = sensor.temperature  # read in temperature
 
             except:
-                #logging.error('Temperature Sensor Error')
+                logging.error('Temperature Sensor Error')
                 print('Temp Read Error')
-            time.sleep(1)  # send new temperature every ten seconds
+
+            if interface.temperature_queue <= 0:
+                time.sleep(1)  # send new temperature every 1 seconds
+            else:
+                time.sleep(10)
 
     # -----------------------------------------------------
     # Function: stop_thread
